@@ -3,6 +3,8 @@
  * SERVICE: GITHUB BACKUP
  * Tanggung jawab: baca source code project GAS ini sendiri (via Apps
  * Script API), lalu push ke repo GitHub (via GitHub REST API).
+ * Juga bisa backup dokumentasi (ARCHITECTURE.md, PROGRESS.md) yang
+ * disimpan di Sheet "Documentation".
  * Berjalan 100% di GAS, tidak butuh local computer.
  * ===================================================================
  */
@@ -25,7 +27,36 @@ const GitHubBackupService = {
         results.push({ path: path, status: 'FAILED: ' + err.message });
         AppLogger.error('GITHUB_BACKUP_FILE_FAILED', path + ': ' + err.message);
       }
-      Utilities.sleep(400); // jaga-jaga hindari rate limit GitHub API
+      Utilities.sleep(400);
+    });
+
+    return results;
+  },
+
+  /**
+   * Push isi dokumentasi (ARCHITECTURE.md, PROGRESS.md) dari Sheet
+   * "Documentation" ke root repo GitHub (bukan folder src/).
+   */
+  backupDocs() {
+    const config = this._loadGitHubConfig();
+    const docs = DocumentationRepository.getAll();
+    const results = [];
+
+    if (docs.length === 0) {
+      AppLogger.warning('GITHUB_BACKUP_DOCS_EMPTY', 'Sheet Documentation kosong');
+      return results;
+    }
+
+    docs.forEach(doc => {
+      try {
+        this._pushFileToGitHub(config, doc.fileName, doc.content);
+        results.push({ path: doc.fileName, status: 'OK' });
+        AppLogger.info('GITHUB_BACKUP_DOC_OK', doc.fileName);
+      } catch (err) {
+        results.push({ path: doc.fileName, status: 'FAILED: ' + err.message });
+        AppLogger.error('GITHUB_BACKUP_DOC_FAILED', doc.fileName + ': ' + err.message);
+      }
+      Utilities.sleep(400);
     });
 
     return results;
@@ -114,12 +145,42 @@ const GitHubBackupService = {
     if (response.getResponseCode() === 200) {
       return JSON.parse(response.getContentText()).sha;
     }
-    return null; // file belum ada di GitHub, akan dibuat baru
+    return null;
   }
 };
 
-function runGitHubBackup() {
-  const results = GitHubBackupService.backupAllFiles();
-  results.forEach(r => Logger.log(r.path + ' -> ' + r.status));
-  Logger.log('=== BACKUP SELESAI: ' + results.length + ' file diproses ===');
+/**
+ * Backup lengkap: source code + dokumentasi, sekali jalan.
+ * Jalankan fungsi ini dari dropdown GAS setiap mau backup manual.
+ */
+function runFullBackup() {
+  Logger.log('--- Backup Source Code ---');
+  const codeResults = GitHubBackupService.backupAllFiles();
+  codeResults.forEach(r => Logger.log(r.path + ' -> ' + r.status));
+
+  Logger.log('--- Backup Dokumentasi ---');
+  const docsResults = GitHubBackupService.backupDocs();
+  docsResults.forEach(r => Logger.log(r.path + ' -> ' + r.status));
+
+  Logger.log('=== FULL BACKUP SELESAI: ' +
+    (codeResults.length + docsResults.length) + ' file diproses ===');
+}
+
+/**
+ * Jalankan fungsi ini SEKALI SAJA untuk mengaktifkan backup otomatis
+ * setiap hari jam 23:00. Opsional — boleh diabaikan kalau mau backup
+ * manual saja.
+ */
+function setupDailyBackupTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === 'runFullBackup') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger('runFullBackup')
+    .timeBased()
+    .everyDays(1)
+    .atHour(23)
+    .create();
+  Logger.log('Trigger backup harian berhasil dibuat (jam 23:00)!');
 }
