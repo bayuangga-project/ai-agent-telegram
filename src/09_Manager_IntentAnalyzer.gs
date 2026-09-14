@@ -7,15 +7,15 @@
  */
 const IntentAnalyzer = {
   analyze(userMessage, context) {
-  const prompt = this._buildPrompt(userMessage, context);
-  const result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'advanced');
+    const prompt = this._buildPrompt(userMessage, context);
+    const result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'advanced');
 
-  if (!result) {
-    AppLogger.error('INTENT_ANALYZER_ALL_PROVIDERS_FAILED', 'Semua provider gagal merespons');
-    return null;
-  }
-  return this._parseResponse(result.text, result.provider);
-},
+    if (!result) {
+      AppLogger.error('INTENT_ANALYZER_ALL_PROVIDERS_FAILED', 'Semua provider gagal merespons');
+      return null;
+    }
+    return this._parseResponse(result.text, result.provider);
+  },
 
   _parseResponse(rawText, providerName) {
     const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -99,7 +99,7 @@ const IntentAnalyzer = {
       'TUGASMU: Analisis pesan di atas, balas HANYA dalam format JSON murni',
       '(tanpa markdown fence, tanpa penjelasan di luar JSON):',
       '{',
-      '  "tipe": "ack_reminder" | "buat_reminder" | "chat_biasa",',
+      '  "tipe": "ack_reminder" | "buat_reminder" | "chat_biasa" | "diagnose_error" | "update_docs",',
       '  "aksiReminder": "done" | "snooze" | null,',
       '  "reminderId": "ID_atau_null",',
       '  "snoozeMinit": angka_atau_null,',
@@ -114,7 +114,13 @@ const IntentAnalyzer = {
       '  "butuhInfoTerkini": true_atau_false,',
       '  "searchQuery": "kata kunci pencarian singkat, WAJIB diisi kalau butuhInfoTerkini true, selain itu null",',
       '  "factsBaru": ["fakta baru yang EKSPLISIT disebutkan user, kosongkan jika',
-      '    tidak ada, JANGAN ulangi fakta yang sudah ada di atas"]',
+      '    tidak ada, JANGAN ulangi fakta yang sudah ada di atas"],',
+      '  "diagnose_error": {',
+      '    "keluhanUser": "string - ringkasan keluhan user atau apa yang tidak bekerja pada bot atau null"',
+      '  },',
+      '  "update_docs": {',
+      '    "instruksi": "string - apa yang ingin diupdate di file dokumentasi atau null"',
+      '  }',
       '}'
     ].join('\n');
   },
@@ -131,7 +137,9 @@ const IntentAnalyzer = {
       '- butuhInfoTerkini = true HANYA kalau user menanyakan sesuatu yang butuh',
       '  data real-time/terkini (berita, harga saat ini, cuaca, hasil pertandingan,',
       '  event terbaru, dll) yang TIDAK MUNGKIN kamu tahu dari pengetahuan statis.',
-      '  Untuk pertanyaan umum/pengetahuan umum, tetap gunakan jawabanChat biasa.'
+      '  Untuk pertanyaan umum/pengetahuan umum, tetap gunakan jawabanChat biasa.',
+      '- diagnose_error dipicu jika user mengeluhkan tentang dirimu yang error, tidak merespons, macet, gagal berpikir, melambat, atau anomali sistem lainnya.',
+      '- update_docs dipicu jika user secara eksplisit meminta kamu mengupdate dokumen proyek, merubah PROGRESS.md, merubah ARCHITECTURE.md, atau merubah catatan arsitektur/progress.'
     ].join('\n');
   }
 };
