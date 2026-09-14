@@ -81,6 +81,45 @@ function debug_CheckGitHubConfig() {
   Logger.log('Cek repo response: ' + response.getContentText().substring(0, 500));
 }
 
+/**
+ * ===================================================================
+ * TEST: Telegram Markdown Parse Error Fallback
+ * ===================================================================
+ */
+function test_TelegramMarkdownFallback() {
+  const config = Config.load();
+  const chatId = config.myChatId;
+
+  Logger.log('=== MULAI TEST TELEGRAM FALLBACK ===');
+
+  // 1. Kirim pesan placeholder (seperti alur asli)
+  const placeholder = TelegramService.pickPlaceholder();
+  const messageId = TelegramService.sendMessage(chatId, placeholder);
+  Logger.log('1. Placeholder terkirim dengan messageId: ' + messageId);
+
+  if (!messageId) {
+    Logger.log('❌ GAGAL: Tidak bisa mengirim pesan placeholder.');
+    return;
+  }
+
+  // Beri jeda 2 detik agar Anda sempat melihat pesan placeholder di Telegram
+  Utilities.sleep(2000);
+
+  // 2. Teks simulasi dengan karakter rusak (bintang gantung, kurung siku rusak, dll)
+  // Ini adalah karakter yang PASTI ditolak oleh parser Markdown Telegram
+  const brokenMarkdownText = 
+    "🧪 *TEST FALLBACK BERHASIL!*\n\n" +
+    "Ini adalah simulasi jawaban dengan Markdown rusak:\n" +
+    "• Bintang gantung tanpa penutup: *mie ayam enak\n" +
+    "• Karakter kurung siku: [ini bukan link\n" +
+    "• Formula target profit: > 500rb & modal < 200rb\n\n" +
+    "Jika pesan ini terbaca utuh di Telegram (placeholder berhasil diedit), artinya FIX BERHASIL!";
+
+  // 3. Coba lakukan editMessage dengan teks rusak tersebut
+  TelegramService.editMessage(chatId, messageId, brokenMarkdownText);
+  Logger.log('2. editMessage telah dieksekusi.');
+  Logger.log('=== SELESAI TEST ===');
+}
 
 
 
