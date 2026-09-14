@@ -41,6 +41,12 @@ const Manager = {
     if (intent.tipe === 'buat_reminder') {
       return this._handleBuatReminder(intent);
     }
+    if (intent.tipe === 'diagnose_error') {
+      return this._handleDiagnoseError(chatId, text, intent);
+    }
+    if (intent.tipe === 'update_docs') {
+      return this._handleUpdateDocs(chatId, text, intent);
+    }
     return this._handleChatBiasa(chatId, text, intent, context.riwayat);
   },
 
@@ -55,6 +61,28 @@ const Manager = {
     return hasil.text;
   },
 
+  _handleDiagnoseError(chatId, text, intent) {
+    const keluhan = (intent.diagnose_error && intent.diagnose_error.keluhanUser)
+                    ? intent.diagnose_error.keluhanUser
+                    : text;
+    const result = SelfHealingSpecialist.diagnose(keluhan);
+
+    ChatHistoryRepository.save(chatId, 'user', text);
+    ChatHistoryRepository.save(chatId, 'ai', result);
+    return result;
+  },
+
+  _handleUpdateDocs(chatId, text, intent) {
+    const instruksi = (intent.update_docs && intent.update_docs.instruksi)
+                      ? intent.update_docs.instruksi
+                      : text;
+    const result = SelfHealingSpecialist.updateDocumentation(instruksi);
+
+    ChatHistoryRepository.save(chatId, 'user', text);
+    ChatHistoryRepository.save(chatId, 'ai', result);
+    return result;
+  },
+
   _handleChatBiasa(chatId, text, intent, riwayat) {
     const finalText = ChatSpecialist.needsWebSearch(intent)
       ? this._handleChatWithWebSearch(text, intent, riwayat)
@@ -66,23 +94,23 @@ const Manager = {
   },
 
   _handleChatWithWebSearch(text, intent, riwayat) {
-  const results = WebSearchProviderService.search(intent.searchQuery);
-  return ChatSpecialist.respondWithSearchContext(text, results, riwayat);
-},
+    const results = WebSearchProviderService.search(intent.searchQuery);
+    return ChatSpecialist.respondWithSearchContext(text, results, riwayat);
+  },
 
   _handleIntentFailure(chatId, text, riwayat) {
-  AppLogger.error('MANAGER_INTENT_FAILURE', 'Fallback ke chat sederhana tanpa intent');
+    AppLogger.error('MANAGER_INTENT_FAILURE', 'Fallback ke chat sederhana tanpa intent');
 
-  const result = LLMProviderService.generate({
-    chain: 'advanced',
-    systemInstruction: ChatSpecialist.buildSystemPersona(),
-    messages: riwayat.concat([{ role: 'user', text: text }]),
-    temperature: 0.7
-  });
-  const finalText = result ? result.text : 'Waduh, semua layanan AI lagi bermasalah nih. Coba lagi sebentar ya.';
+    const result = LLMProviderService.generate({
+      chain: 'advanced',
+      systemInstruction: ChatSpecialist.buildSystemPersona(),
+      messages: riwayat.concat([{ role: 'user', text: text }]),
+      temperature: 0.7
+    });
+    const finalText = result ? result.text : 'Waduh, semua layanan AI lagi bermasalah nih. Coba lagi sebentar ya.';
 
-  ChatHistoryRepository.save(chatId, 'user', text);
-  ChatHistoryRepository.save(chatId, 'ai', finalText);
-  return finalText;
-}
+    ChatHistoryRepository.save(chatId, 'user', text);
+    ChatHistoryRepository.save(chatId, 'ai', finalText);
+    return finalText;
+  }
 };
