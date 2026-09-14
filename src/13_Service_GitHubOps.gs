@@ -22,11 +22,18 @@ var GitHubOpsService = {
            config.githubRepoName;
   },
 
+  _encodePath: function(path) {
+    if (!path) return '';
+    return path.split('/').map(function(segment) {
+      return encodeURIComponent(segment);
+    }).join('/');
+  },
+
   readFile: function(path, ref) {
     var config = Config.load();
     var branch = ref || config.githubBranch || 'main';
     var url = this._getRepoUrl() + '/contents/' +
-              encodeURIComponent(path) + '?ref=' + branch;
+              this._encodePath(path) + '?ref=' + branch;
 
     try {
       var response = UrlFetchApp.fetch(url, {
@@ -61,7 +68,7 @@ var GitHubOpsService = {
   listDirectory: function(path) {
     var config = Config.load();
     var url = this._getRepoUrl() + '/contents/' +
-              encodeURIComponent(path) + '?ref=' +
+              this._encodePath(path) + '?ref=' +
               (config.githubBranch || 'main');
 
     try {
@@ -164,7 +171,7 @@ var GitHubOpsService = {
 
   commitFile: function(path, content, message, branch, sha) {
     var url = this._getRepoUrl() + '/contents/' +
-              encodeURIComponent(path);
+              this._encodePath(path);
     var config = Config.load();
     var targetBranch = branch || config.githubBranch || 'main';
 
