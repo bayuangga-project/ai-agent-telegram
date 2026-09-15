@@ -2,7 +2,7 @@
  * ===================================================================
  * SPESIALIS: REMINDER
  * Tanggung jawab: semua logic bisnis terkait reminder.
- * Tidak tahu cara kirim Telegram — hanya hasilkan teks siap pakai.
+ * Tidak tahu cara kirim Telegram ? hanya hasilkan teks siap pakai.
  * ===================================================================
  */
 const ReminderSpecialist = {
@@ -14,7 +14,16 @@ const ReminderSpecialist = {
   },
 
   listActiveAsText() {
-    return ReminderRepository.formatDaftarAktifSebagaiTeks();
+    const reminders = ReminderRepository.getActive();
+    if (reminders.length === 0) return 'Tidak ada reminder aktif saat ini.';
+
+    const lines = reminders.map((r, i) => {
+      const waktu = DateTimeUtils.formatWaktu(r.waktuPertama);
+      const recurring = r.jenisRecurring !== 'none' ? ' ? (' + r.jenisRecurring + ')' : '';
+      return (i + 1) + '. *' + r.deskripsi + '*\n   ? ' + waktu + recurring +
+        '\n   ? ' + r.prioritas + ' | ID: `' + r.id + '`';
+    });
+    return '? *Reminder Aktif:*\n\n' + lines.join('\n\n');
   },
 
   getAckPatternsForPrompt(limit) {
@@ -64,9 +73,9 @@ const ReminderSpecialist = {
     const labelUlang = jumlahBaru > 1 ? ' (ke-' + jumlahBaru + ')' : '';
     const konteks = this._buildRelevantFactContext(reminder);
 
-    return '⏰ *Reminder' + labelUlang + '*\n\n' +
-      '📌 ' + reminder.deskripsi + '\n' +
-      '🕐 ' + DateTimeUtils.formatWaktu(reminder.waktuPertama) + konteks;
+    return '? *Reminder' + labelUlang + '*\n\n' +
+      '? ' + reminder.deskripsi + '\n' +
+      '? ' + DateTimeUtils.formatWaktu(reminder.waktuPertama) + konteks;
   },
 
   markAsNotified(reminder) {
@@ -95,11 +104,11 @@ const ReminderSpecialist = {
 
   _buildConfirmationText(data) {
     const recurringTeks = data.jenisRecurring && data.jenisRecurring !== 'none'
-      ? '\n🔄 Berulang: ' + data.jenisRecurring : '';
-    return '✅ Reminder tersimpan!\n\n' +
-      '📌 *' + data.deskripsi + '*\n' +
-      '📅 ' + data.waktuPertama + ' WIB' + recurringTeks + '\n' +
-      '🏷 Prioritas: ' + data.prioritas;
+      ? '\n? Berulang: ' + data.jenisRecurring : '';
+    return '? Reminder tersimpan!\n\n' +
+      '? *' + data.deskripsi + '*\n' +
+      '? ' + data.waktuPertama + ' WIB' + recurringTeks + '\n' +
+      '? Prioritas: ' + data.prioritas;
   },
 
   _handleDone(pesanUserAsli, intent, target) {
@@ -108,11 +117,11 @@ const ReminderSpecialist = {
       const waktuBerikutnya = ReminderRepository.hitungWaktuBerikutnya(target);
       ReminderRepository.updateWaktu(target.rowIndex, waktuBerikutnya);
       ReminderRepository.updateTerakhirDiingatkan(target.rowIndex, 0);
-      text = '✅ *' + target.deskripsi + '* sudah aku tandai selesai!\n' +
+      text = '? *' + target.deskripsi + '* sudah aku tandai selesai!\n' +
         'Pengingat berikutnya: ' + DateTimeUtils.formatWaktu(waktuBerikutnya);
     } else {
       ReminderRepository.updateStatus(target.rowIndex, ReminderRepository.STATUS_DONE);
-      text = '✅ Oke, *' + target.deskripsi + '* sudah selesai! 👍';
+      text = '? Oke, *' + target.deskripsi + '* sudah selesai! ?';
     }
 
     AckPatternsRepository.save(pesanUserAsli, intent.alasan, 'done');
@@ -126,7 +135,7 @@ const ReminderSpecialist = {
     ReminderRepository.updateWaktu(target.rowIndex, waktuBaru);
     ReminderRepository.updateTerakhirDiingatkan(target.rowIndex, target.jumlahDiingatkan);
 
-    const text = '⏱ Oke, aku ingetin lagi ' + menitSnooze + ' menit lagi ya!';
+    const text = '? Oke, aku ingetin lagi ' + menitSnooze + ' menit lagi ya!';
     AckPatternsRepository.save(pesanUserAsli, intent.alasan, 'snooze');
     return { success: true, text };
   }
