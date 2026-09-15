@@ -31,7 +31,7 @@ var SelfHealingSpecialist = {
     });
 
     if (Object.keys(sourceMap).length === 0) {
-      return '❌ Gagal membaca source code dari GitHub. ' +
+      return '? Gagal membaca source code dari GitHub. ' +
              'Silakan cek GITHUB_TOKEN di Script Properties (kemungkinan expired atau kurang scope `repo`).';
     }
 
@@ -60,7 +60,7 @@ var SelfHealingSpecialist = {
     var progFile = GitHubOpsService.readDocFile('PROGRESS.md');
 
     if (!archFile && !progFile) {
-      return '❌ Gagal membaca dokumentasi dari GitHub. ' +
+      return '? Gagal membaca dokumentasi dari GitHub. ' +
              'Kemungkinan GITHUB_TOKEN expired atau kurang scope `repo`. ' +
              'Silakan cek di Script Properties.';
     }
@@ -88,14 +88,14 @@ var SelfHealingSpecialist = {
     var llmResult = LLMProviderService.generateFromSinglePrompt(prompt, 0.2, 'advanced');
 
     if (!llmResult || !llmResult.text) {
-      return '❌ Semua provider LLM gagal merespons. Coba lagi beberapa saat.';
+      return '? Semua provider LLM gagal merespons. Coba lagi beberapa saat.';
     }
 
     var responseText = llmResult.text;
 
     try {
-      var cleaned = responseText.replace(/```json\n?/g, '')
-                                .replace(/```\n?/g, '').trim();
+      var cleaned = responseText.replace(/\n?/g, '')
+                                .replace(/\n?/g, '').trim();
       var result = JSON.parse(cleaned);
 
       if (result.files && result.files.length > 0) {
@@ -110,32 +110,32 @@ var SelfHealingSpecialist = {
           commitResults.push({ file: file.fileName, success: ok });
         });
 
-        var reply = '📝 *Update Dokumentasi Selesai*\n\n' +
+        var reply = '? *Update Dokumentasi Selesai*\n\n' +
                     '*Ringkasan:* ' + result.summary + '\n\n' +
                     '*Status File:*\n';
         commitResults.forEach(function(r) {
-          reply += (r.success ? '✅' : '❌') + ' `' + r.file + '`\n';
+          reply += (r.success ? '?' : '?') + ' `' + r.file + '`\n';
         });
 
         return reply;
       }
 
-      return '🤷 Tidak ada perubahan dokumentasi yang perlu dilakukan.';
+      return '? Tidak ada perubahan dokumentasi yang perlu dilakukan.';
 
     } catch (e) {
       AppLogger.error('SELF_HEAL_DOC_PARSE_FAIL', e.message);
-      return '❌ Gagal update dokumentasi: ' + e.message;
+      return '? Gagal update dokumentasi: ' + e.message;
     }
   },
 
   applyPendingPatch: function(patchId) {
     var patch = this._getPatchById(patchId);
     if (!patch) {
-      return '❌ Patch tidak ditemukan.';
+      return '? Patch tidak ditemukan.';
     }
 
     if (patch.status !== 'pending') {
-      return '⚠️ Patch ini sudah berstatus: ' + patch.status;
+      return '?? Patch ini sudah berstatus: ' + patch.status;
     }
 
     return this._applyToGitHub({
@@ -181,13 +181,13 @@ var SelfHealingSpecialist = {
     var suspectSet = {};
     var mapping = {
       'TELEGRAM': '05_Service_Telegram.gs',
-      'LLM': '06_Service_LLM.gs',
+      'LLM': '06_Service_LLMProvider.gs',
       'INTENT': '09_Manager_IntentAnalyzer.gs',
       'WEBHOOK': '10_Handler_Webhook.gs',
       'REMINDER': '11_Trigger_ReminderChecker.gs',
       'FINANCE': '08_Specialist_Finance.gs',
       'REPO': '01_SpreadsheetGateway.gs',
-      'SEARCH': '07_Service_WebSearch.gs',
+      'SEARCH': '07_Service_WebSearchProvider.gs',
       'GITHUB': '13_Service_GitHubOps.gs',
       'SELF_HEAL': '08_Specialist_SelfHealing.gs'
     };
@@ -252,8 +252,8 @@ var SelfHealingSpecialist = {
     var responseText = llmResult.text;
 
     try {
-      var cleaned = responseText.replace(/```json\n?/g, '')
-                                .replace(/```\n?/g, '').trim();
+      var cleaned = responseText.replace(/\n?/g, '')
+                                .replace(/\n?/g, '').trim();
       return JSON.parse(cleaned);
     } catch (e) {
       AppLogger.error('SELF_HEAL_LLM_PARSE_FAIL', e.message);
@@ -275,7 +275,7 @@ var SelfHealingSpecialist = {
     var branchOk = GitHubOpsService.createBranch(branchName);
     if (!branchOk) {
       return this._formatPatchForChat(diagnosis) +
-             '\n\n⚠️ Gagal buat branch di GitHub. Silakan apply manual.';
+             '\n\n?? Gagal buat branch di GitHub. Silakan apply manual.';
     }
 
     var original = GitHubOpsService.readFile('src/' + diagnosis.fileName);
@@ -291,11 +291,11 @@ var SelfHealingSpecialist = {
 
     if (!commitOk) {
       return this._formatPatchForChat(diagnosis) +
-             '\n\n⚠️ Gagal commit ke GitHub. Silakan apply manual.';
+             '\n\n?? Gagal commit ke GitHub. Silakan apply manual.';
     }
 
     var prUrl = GitHubOpsService.createPullRequest(
-      '🤖 Auto-Heal: ' + diagnosis.fileName,
+      '? Auto-Heal: ' + diagnosis.fileName,
       '## Diagnosis\n' + diagnosis.diagnosis + '\n\n' +
       '## Detail Teknis\n' + (diagnosis.technicalDetail || '-') + '\n\n' +
       '## Perubahan\n' +
@@ -306,33 +306,33 @@ var SelfHealingSpecialist = {
 
     this._updatePatchStatus(diagnosis.fileName, 'committed');
 
-    var reply = '🛠️ *Perbaikan Berhasil Dibuat!*\n\n' +
-                '🔍 *Diagnosis:* ' + diagnosis.diagnosis + '\n\n' +
-                '📁 *File:* `' + diagnosis.fileName + '`\n' +
-                '🌿 *Branch:* `' + branchName + '`\n';
+    var reply = '?? *Perbaikan Berhasil Dibuat!*\n\n' +
+                '? *Diagnosis:* ' + diagnosis.diagnosis + '\n\n' +
+                '? *File:* `' + diagnosis.fileName + '`\n' +
+                '? *Branch:* `' + branchName + '`\n';
 
     if (prUrl) {
-      reply += '🔗 *Pull Request:* ' + prUrl + '\n';
+      reply += '? *Pull Request:* ' + prUrl + '\n';
     }
 
-    reply += '\n📋 *Perubahan:*\n';
+    reply += '\n? *Perubahan:*\n';
     (diagnosis.changes || []).forEach(function(c) {
-      reply += '• ' + c + '\n';
+      reply += '? ' + c + '\n';
     });
 
-    reply += '\n📌 *Langkah selanjutnya:* Review PR di GitHub, lalu merge jika sesuai.';
+    reply += '\n? *Langkah selanjutnya:* Review PR di GitHub, lalu merge jika sesuai.';
     return reply;
   },
 
   _formatPatchForChat: function(diagnosis) {
-    var reply = '🔍 *Hasil Diagnosis:*\n\n' +
+    var reply = '? *Hasil Diagnosis:*\n\n' +
                 diagnosis.diagnosis + '\n\n';
 
     if (diagnosis.patchedCode && diagnosis.fileName) {
-      reply += '🔧 *File:* `' + diagnosis.fileName + '`\n\n' +
-               '📋 *Perubahan:*\n';
+      reply += '? *File:* `' + diagnosis.fileName + '`\n\n' +
+               '? *Perubahan:*\n';
       (diagnosis.changes || []).forEach(function(c) {
-        reply += '• ' + c + '\n';
+        reply += '? ' + c + '\n';
       });
       reply += '\nKode perbaikan telah disimpan ke sheet `SelfHeal_Patches`.';
     }
@@ -341,7 +341,7 @@ var SelfHealingSpecialist = {
   },
 
   _formatDiagnosisOnly: function(diagnosis, errorLogs) {
-    var reply = '🔍 *Hasil Diagnosis:*\n\n';
+    var reply = '? *Hasil Diagnosis:*\n\n';
 
     if (diagnosis && diagnosis.diagnosis) {
       reply += diagnosis.diagnosis + '\n\n';
@@ -350,9 +350,9 @@ var SelfHealingSpecialist = {
     }
 
     if (errorLogs.length > 0) {
-      reply += '📊 *Log Error Terakhir:*\n';
+      reply += '? *Log Error Terakhir:*\n';
       errorLogs.slice(-3).forEach(function(log) {
-        reply += '• `[' + log.event + ']` ' + log.detail.substring(0, 80) + '\n';
+        reply += '? `[' + log.event + ']` ' + log.detail.substring(0, 80) + '\n';
       });
     }
 
