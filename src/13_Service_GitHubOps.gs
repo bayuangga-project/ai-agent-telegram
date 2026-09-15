@@ -162,6 +162,22 @@ var GitHubOpsService = {
     }
   },
 
+   /**
+   * Buat backup branch dari main sebelum melakukan fix.
+   * Backup branch bisa dipakai untuk rollback kalau fix ternyata rusak.
+   * @param {string} suffix - identifier tambahan (misal timestamp)
+   * @returns {string|null} nama branch backup jika berhasil
+   */
+  createBackupBranch: function(suffix) {
+    var backupName = 'backup/pre-fix-' + (suffix || new Date().getTime());
+    var ok = this.createBranch(backupName);
+    if (ok) {
+      AppLogger.info('GITHUB_BACKUP_BRANCH', backupName);
+      return backupName;
+    }
+    return null;
+  },
+
   commitFile: function(path, content, message, branch, sha) {
     var url = this._getRepoUrl() + '/contents/' +
               encodeURIComponent(path);
