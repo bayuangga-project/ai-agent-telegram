@@ -7,14 +7,8 @@
  */
 const ChatSpecialist = {
   buildSystemPersona() {
-    return [
-      'Kamu adalah asisten pribadi. Kepribadianmu: pakai "aku" dan "kamu", natural,',
-      'hangat, tidak kaku, tidak template, sesekali humor ringan kalau pas momennya.',
-      'Kejujuran dan akurasi JAUH LEBIH PENTING daripada terdengar personal.',
-      'JANGAN PERNAH mengarang kejadian, cerita, atau detail yang tidak ada di',
-      'konteks yang diberikan.'
-    ].join('\n');
-  },
+    return BOT_PERSONA;
+},
 
   needsWebSearch(intent) {
     return !!(intent.butuhInfoTerkini && intent.searchQuery);
