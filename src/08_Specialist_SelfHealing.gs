@@ -267,20 +267,47 @@ var SelfHealingSpecialist = {
     }
   },
 
-  _applyToGitHub: function(diagnosis) {
+    _applyToGitHub: function(diagnosis) {
     var branchName = 'fix/' +
       diagnosis.fileName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() +
       '-' + new Date().getTime();
 
+    // STEP 1: Baca kode original untuk validasi & SHA
+    var original = GitHubOpsService.readFile('src/' + diagnosis.fileName);
+    var originalContent = original ? original.content : null;
+    var sha = original ? original.sha : null;
+
+    // STEP 2: Validasi patch SEBELUM apapun
+    var validation = PatchValidator.validate(
+      diagnosis.patchedCode,
+      originalContent,
+      diagnosis.fileName
+    );
+
+    if (!validation.valid) {
+      var errorReply = '🚫 *Patch Ditolak oleh Validator*\n\n' +
+                       '🔍 *Diagnosis:* ' + diagnosis.diagnosis + '\n\n' +
+                       '📁 *File:* `' + diagnosis.fileName + '`\n\n' +
+                       '❌ *Alasan:*\n';
+      validation.errors.forEach(function(err) {
+        errorReply += '• ' + err + '\n';
+      });
+      errorReply += '\nPatch tidak akan di-commit ke GitHub. ' +
+                    'Coba minta diagnosis ulang atau perbaiki manual.';
+      return errorReply;
+    }
+
+    // STEP 3: Buat backup branch dulu (safety net)
+    var backupBranch = GitHubOpsService.createBackupBranch('selfheal-' + new Date().getTime());
+
+    // STEP 4: Buat fix branch
     var branchOk = GitHubOpsService.createBranch(branchName);
     if (!branchOk) {
       return this._formatPatchForChat(diagnosis) +
              '\n\n⚠️ Gagal buat branch di GitHub. Silakan apply manual.';
     }
 
-    var original = GitHubOpsService.readFile('src/' + diagnosis.fileName);
-    var sha = original ? original.sha : null;
-
+    // STEP 5: Commit ke fix branch
     var commitOk = GitHubOpsService.commitFile(
       'src/' + diagnosis.fileName,
       diagnosis.patchedCode,
@@ -294,12 +321,21 @@ var SelfHealingSpecialist = {
              '\n\n⚠️ Gagal commit ke GitHub. Silakan apply manual.';
     }
 
+    // STEP 6: Buat Pull Request
+    var prBody = '## Diagnosis\n' + diagnosis.diagnosis + '\n\n' +
+                 '## Detail Teknis\n' + (diagnosis.technicalDetail || '-') + '\n\n' +
+                 '## Perubahan\n' +
+                 (diagnosis.changes || []).map(function(c) { return '- ' + c; }).join('\n') + '\n\n' +
+                 '## Validasi\n' + PatchValidator.formatResult(validation) + '\n\n';
+
+    if (backupBranch) {
+      prBody += '## Backup\nBackup branch: `' + backupBranch + '`\n' +
+                'Rollback command: `git reset --hard ' + backupBranch + '`';
+    }
+
     var prUrl = GitHubOpsService.createPullRequest(
       '🤖 Auto-Heal: ' + diagnosis.fileName,
-      '## Diagnosis\n' + diagnosis.diagnosis + '\n\n' +
-      '## Detail Teknis\n' + (diagnosis.technicalDetail || '-') + '\n\n' +
-      '## Perubahan\n' +
-      (diagnosis.changes || []).map(function(c) { return '- ' + c; }).join('\n'),
+      prBody,
       branchName,
       null
     );
@@ -311,14 +347,25 @@ var SelfHealingSpecialist = {
                 '📁 *File:* `' + diagnosis.fileName + '`\n' +
                 '🌿 *Branch:* `' + branchName + '`\n';
 
+    if (backupBranch) {
+      reply += '💾 *Backup:* `' + backupBranch + '`\n';
+    }
+
     if (prUrl) {
-      reply += '🔗 *Pull Request:* ' + prUrl + '\n';
+      reply += '🔗 *PR:* ' + prUrl + '\n';
     }
 
     reply += '\n📋 *Perubahan:*\n';
     (diagnosis.changes || []).forEach(function(c) {
       reply += '• ' + c + '\n';
     });
+
+    if (validation.warnings.length > 0) {
+      reply += '\n⚠️ *Peringatan Validator:*\n';
+      validation.warnings.forEach(function(w) {
+        reply += '• ' + w + '\n';
+      });
+    }
 
     reply += '\n📌 *Langkah selanjutnya:* Review PR di GitHub, lalu merge jika sesuai.';
     return reply;
