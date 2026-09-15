@@ -17,7 +17,7 @@ const TransactionRepository = {
 
   create(data) {
     const id = IdGenerator.generate('TRX');
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       id, new Date(), data.walletId, data.tanggalTransaksi,
       data.tipe, data.kategori, data.jumlah, data.deskripsi || '',
       this.STATUS_ACTIVE

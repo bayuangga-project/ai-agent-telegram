@@ -9,8 +9,8 @@
  * ===================================================================
  */
 const GitHubBackupService = {
-  APPS_SCRIPT_API_BASE: 'https://script.googleapis.com/v1/projects/',
-  GITHUB_API_BASE: 'https://api.github.com/repos/',
+  APPS_SCRIPT_API_BASE: 'https://script.googleapis.com/v1/projects/**',
+  GITHUB_API_BASE: 'https://api.github.com/repos/**',
 
   backupAllFiles() {
     const config = this._loadGitHubConfig();
@@ -108,7 +108,7 @@ const GitHubBackupService = {
     const existingSha = this._getExistingFileSha(config, url);
 
     const payload = {
-      message: 'Auto backup dari GAS — ' + new Date().toISOString(),
+      message: 'Auto backup dari GAS ? ' + new Date().toISOString(),
       content: Utilities.base64Encode(content, Utilities.Charset.UTF_8),
       branch: config.branch
     };
@@ -118,7 +118,7 @@ const GitHubBackupService = {
       method: 'put',
       contentType: 'application/json',
       headers: {
-        Authorization: 'token ' + config.token,
+        Authorization: 'Bearer ' + config.token,
         Accept: 'application/vnd.github+json'
       },
       payload: JSON.stringify(payload),
@@ -136,7 +136,7 @@ const GitHubBackupService = {
     const response = UrlFetchApp.fetch(url + '?ref=' + config.branch, {
       method: 'get',
       headers: {
-        Authorization: 'token ' + config.token,
+        Authorization: 'Bearer ' + config.token,
         Accept: 'application/vnd.github+json'
       },
       muteHttpExceptions: true
@@ -168,7 +168,7 @@ function runFullBackup() {
 
 /**
  * Jalankan fungsi ini SEKALI SAJA untuk mengaktifkan backup otomatis
- * setiap hari jam 23:00. Opsional — boleh diabaikan kalau mau backup
+ * setiap hari jam 23:00. Opsional ? boleh diabaikan kalau mau backup
  * manual saja.
  */
 function setupDailyBackupTrigger() {

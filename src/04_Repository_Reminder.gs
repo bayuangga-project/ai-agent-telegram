@@ -16,7 +16,7 @@ const ReminderRepository = {
 
   create(data) {
     const id = IdGenerator.generate('REM');
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       id, new Date(), data.deskripsi, data.waktuPertama, this.STATUS_AKTIF,
       data.prioritas || 'Normal', '', data.catatan || '',
       data.jenisRecurring || 'none', data.recurringConfig || '', 0
@@ -86,19 +86,6 @@ const ReminderRepository = {
     else if (reminder.jenisRecurring === 'weekly') waktu.setDate(waktu.getDate() + 7);
     else if (reminder.jenisRecurring === 'monthly') waktu.setMonth(waktu.getMonth() + 1);
     return waktu;
-  },
-
-  formatDaftarAktifSebagaiTeks() {
-    const reminders = this.getActive();
-    if (reminders.length === 0) return 'Tidak ada reminder aktif saat ini.';
-
-    const lines = reminders.map((r, i) => {
-      const waktu = DateTimeUtils.formatWaktu(r.waktuPertama);
-      const recurring = r.jenisRecurring !== 'none' ? ' 🔄 (' + r.jenisRecurring + ')' : '';
-      return (i + 1) + '. *' + r.deskripsi + '*\n   📅 ' + waktu + recurring +
-        '\n   🏷 ' + r.prioritas + ' | ID: `' + r.id + '`';
-    });
-    return '📋 *Reminder Aktif:*\n\n' + lines.join('\n\n');
   }
 };
 
@@ -106,7 +93,7 @@ const AckPatternsRepository = {
   SHEET_NAME: 'Reminder_AckPatterns',
 
   save(pesanUser, interpretasi, aksi) {
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       IdGenerator.generate('ACK'), new Date(), pesanUser, interpretasi, aksi
     ]);
   },

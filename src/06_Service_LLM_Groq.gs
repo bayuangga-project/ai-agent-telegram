@@ -5,7 +5,7 @@
  */
 const GroqProvider = {
   NAME: 'groq',
-  MODEL: 'openai/gpt-oss-20b',
+  MODEL: 'llama-3.3-70b-versatile',
   ENDPOINT: 'https://api.groq.com/openai/v1/chat/completions',
 
   call(systemInstruction, messages, temperature) {
