@@ -8,7 +8,7 @@ const BudgetRepository = {
 
   create(kategori, batasJumlah, periode) {
     const id = IdGenerator.generate('BUD');
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       id, kategori, batasJumlah, periode, new Date()
     ]);
     return id;
