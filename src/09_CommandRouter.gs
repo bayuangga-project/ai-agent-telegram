@@ -1,8 +1,6 @@
 /**
  * ===================================================================
  * COMMAND ROUTER
- * Tanggung jawab: deteksi & eksekusi command eksplisit Telegram
- * (fast path, tidak perlu panggil LLM/placeholder).
  * ===================================================================
  */
 const CommandRouter = {
@@ -12,15 +10,11 @@ const CommandRouter = {
   isKnownCommand(text) {
     const cleanText = text.trim();
     const firstWord = cleanText.split(' ')[0].toLowerCase();
-
     return text.indexOf(this.PREFIX_INGAT) === 0 ||
       this.COMMANDS_LIST_REMINDER.indexOf(cleanText) !== -1 ||
-      firstWord === '/diagnose' ||
-      firstWord === '/heal' ||
-      firstWord === '/logs' ||
-      firstWord === '/patch' ||
-      firstWord === '/audit' ||
-      firstWord === '/fix';
+      firstWord === '/diagnose' || firstWord === '/heal' ||
+      firstWord === '/logs' || firstWord === '/patch' ||
+      firstWord === '/build';
   },
 
   handle(chatId, text) {
@@ -28,64 +22,41 @@ const CommandRouter = {
     const firstWord = cleanText.split(' ')[0].toLowerCase();
     const args = cleanText.substring(firstWord.length).trim();
 
-    if (text.indexOf(this.PREFIX_INGAT) === 0) {
+    if (text.indexOf(this.PREFIX_INGAT) === 0)
       return this._handleIngat(chatId, text);
-    }
-
-    if (this.COMMANDS_LIST_REMINDER.indexOf(cleanText) !== -1) {
+    if (this.COMMANDS_LIST_REMINDER.indexOf(cleanText) !== -1)
       return ReminderSpecialist.listActiveAsText();
-    }
-
     if (firstWord === '/diagnose' || firstWord === '/heal') {
-      const keluhan = args || 'Tolong cek log terakhir, apakah ada error?';
+      const keluhan = args || 'Cek log terakhir, apakah ada error?';
       return SelfHealingSpecialist.diagnose(keluhan);
     }
-
     if (firstWord === '/logs') {
       const count = parseInt(args, 10) || 10;
       const logs = SelfHealingSpecialist._getRecentLogs(count);
       if (logs.length === 0) return '📋 Log kosong.';
-
       let reply = '📋 *' + logs.length + ' Log Terakhir:*\n\n';
       logs.forEach(function(log) {
-        const eventUpper = String(log.event).toUpperCase();
-        const isError = eventUpper.indexOf('FAIL') !== -1 ||
-                        eventUpper.indexOf('ERROR') !== -1 ||
-                        log.status === 'ERROR';
-        reply += (isError ? '🔴' : '🟢') + ' `' + log.event + '`\n' +
-                 '   ' + log.detail.substring(0, 80) + '\n\n';
+        const isErr = String(log.event).toUpperCase().indexOf('FAIL') !== -1;
+        reply += (isErr ? '🔴' : '🟢') + ' `' + log.event + '` ' +
+                 log.detail.substring(0, 80) + '\n';
       });
       return reply;
     }
-
     if (firstWord === '/patch') {
-      if (args === 'apply') {
-        return SelfHealingSpecialist.applyPendingPatch(null);
-      }
-      return '🔧 *Patch Commands:*\n' +
-             '• `/patch apply` — Apply patch terakhir ke GitHub\n' +
-             '• `/diagnose <keluhan>` — Diagnosis error\n' +
-             '• `/logs [jumlah]` — Lihat log terakhir';
+      if (args === 'apply') return SelfHealingSpecialist.applyPendingPatch(null);
+      return '🔧 `/patch apply` | `/diagnose` | `/logs`';
     }
-
-    if (firstWord === '/audit') {
-      const scope = args === 'light' ? 'light' : 'full';
-      return CodeAuditor.runAudit(scope);
+    if (firstWord === '/build') {
+      if (!args) return '🏗️ Gunakan: `/build <deskripsi fitur>`\nContoh: `/build tracking mood harian`';
+      return FeatureArchitect.generateBlueprint(args);
     }
-
-    if (firstWord === '/fix') {
-      const scope = args || 'all';
-      return CodeAuditor.fixIssues(scope);
-    }
-
     return 'Command tidak dikenali.';
   },
 
   _handleIngat(chatId, text) {
     const factText = text.substring(this.PREFIX_INGAT.length).trim();
-    if (factText.length === 0) {
-      return 'Mau aku inget apa? Contoh: `/ingat aku suka kopi tanpa gula`';
-    }
+    if (factText.length === 0)
+      return 'Mau aku inget apa? Contoh: `/ingat aku suka kopi`';
     KnowledgeSpecialist.saveManualFact(chatId, factText);
     return 'Oke, aku inget ini: _"' + factText + '"_ 👍';
   }
