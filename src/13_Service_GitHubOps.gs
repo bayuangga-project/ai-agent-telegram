@@ -170,7 +170,7 @@ var GitHubOpsService = {
 
     var payload = {
       message: message,
-      content: Utilities.base64Encode(content),
+      content: Utilities.base64Encode(content, Utilities.Charset.UTF_8),
       branch: targetBranch
     };
 
