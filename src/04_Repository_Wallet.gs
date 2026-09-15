@@ -8,7 +8,7 @@ const WalletRepository = {
 
   create(nama, saldoAwal) {
     const id = IdGenerator.generate('WAL');
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       id, nama, saldoAwal || 0, new Date()
     ]);
     return id;
