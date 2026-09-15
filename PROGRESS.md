@@ -17,8 +17,8 @@
 | Reminder (buat, recurring, ack done/snooze) | ? Selesai | Termasuk time-based trigger tiap 1 menit + cooldown notifikasi |
 | Knowledge/Facts (memory fakta user) | ? Selesai | Manual (`/ingat`) & auto-detect dari intent LLM |
 | **Self-Healing Service** | ? Selesai | System health monitor, auto-recovery trigger, error mitigation fail-safe |
-| **GitHubOps Service** | ? Selesai | Otomatisasi sync kode & dokumen, backup repo, dan inspeksi kesehatan repositori GitHub |
-| **Finance (wallet, transaksi, budget)** | ? **Backend selesai, TIDAK terintegrasi ke chat** | Lihat ?2 ? gap paling signifikan saat ini |
+| **GitHubOps Service & Backup System** | ? Selesai | Otomatisasi sync kode `src/` & dokumen (`ARCHITECTURE.md`, `PROGRESS.md`), backup repo harian, dan pemulihan |
+| **Finance (wallet, transaksi, budget)** | ?? **Backend selesai, TIDAK terintegrasi ke chat** | Lihat ?2 ? gap paling signifikan saat ini |
 | Automated test suite | ? Belum ada | Yang ada cuma fungsi manual `test_Batch7b_FinanceSpecialist` + 2 fungsi debug di `99_Tests.gs` |
 
 ## 2. Gap Terbesar: Finance Belum Bisa Diakses Lewat Chat
@@ -34,7 +34,7 @@ Namun belum ada titik pemicu dari percakapan Telegram. Langkah penyesuaian yang 
 
 - **Telegram Fallback Parser**: Diperbaiki untuk menangani payload update Telegram yang tidak standar (misalnya `edited_message`, `callback_query`, atau struktur JSON tanpa field `text`/`message`). Parser sekarang menggunakan *multi-tiered payload extraction* sehingga Webhook tidak lagi melempar `NullPointerException` atau `TypeError`.
 - **Implementasi Modul Self-Healing (`03_Service_SelfHealing.gs`)**: Menangani masalah trigger mati/stuck dan runtime unhandled errors secara otomatis. Jika terjadi kegagalan jaringan/API temporary, Self-Healing Service memulihkan state aplikasi dan memastikan response HTTP 200 tetap dikirim ke Telegram.
-- **Evolusi GitHubOps Service (`12_Service_GitHubOps.gs`)**: Memperbarui skrip backup sederhana menjadi layanan GitHubOps penuh untuk menyinkronkan kode `src/` serta dokumentasi `ARCHITECTURE.md` dan `PROGRESS.md` secara konsisten antara Google Sheets dan GitHub.
+- **Evolusi GitHubOps Service & System Backup (`12_Service_GitHubOps.gs`)**: Memperbarui skrip backup sederhana menjadi layanan GitHubOps penuh untuk menyinkronkan kode `src/` serta dokumentasi `ARCHITECTURE.md` dan `PROGRESS.md` secara konsisten antara Google Sheets dan GitHub, serta mendukung disaster recovery restore.
 - **Kesalahan perhitungan periode (`yyyy-MM`) dekat pergantian hari/bulan**: Ditangani via `DateTimeUtils.formatPeriode()` dan `BudgetRepository._normalizePeriode()`.
 
 ## 4. Tech Debt / Risiko yang Perlu Diketahui
@@ -48,3 +48,4 @@ Namun belum ada titik pemicu dari percakapan Telegram. Langkah penyesuaian yang 
 1. Integrasikan modul Finance ke jalur percakapan (`IntentAnalyzer` + `Manager`).
 2. Konsolidasikan prompt persona ke satu modul terpusat.
 3. Tambahkan command eksplisit untuk transaksi/saldo di `CommandRouter` sebagai alternatif fast path.
+4. Jalankan pengujian berkala pada `GitHubOpsService.runFullGitHubOps()` untuk meyakinkan integritas backup repositori GitHub.
