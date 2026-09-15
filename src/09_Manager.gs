@@ -4,6 +4,12 @@
  * Tanggung jawab: terima pesan natural language, panggil
  * IntentAnalyzer, routing ke Specialist yang sesuai, kembalikan
  * jawaban final.
+ *
+ * OPTIMASI KECEPATAN:
+ * - Intent analysis pakai chain "fast" (~3-5 detik)
+ * - Untuk chat_biasa dengan complexity "light": pakai jawabanChat langsung
+ * - Untuk chat_biasa dengan complexity "heavy": panggil LLM advanced
+ *   untuk jawaban yang lebih mendalam
  * ===================================================================
  */
 const Manager = {
@@ -23,6 +29,8 @@ const Manager = {
     return {
       riwayat: ChatHistoryRepository.getRecent(15),
       facts: KnowledgeSpecialist.getActiveFactsForPrompt(50),
+      profile: UserProfileSpecialist.getProfileForPrompt(30),
+      ltm: MemorySpecialist.getLongTermMemory(7),
       reminderMenunggu: ReminderSpecialist.getMenungguRespon(),
       ackPatterns: ReminderSpecialist.getAckPatternsForPrompt(10)
     };
@@ -31,6 +39,9 @@ const Manager = {
   _persistAutoFacts(chatId, intent) {
     if (intent.factsBaru && intent.factsBaru.length > 0) {
       KnowledgeSpecialist.saveAutoDetectedFacts(chatId, intent.factsBaru);
+    }
+    if (intent.profileUpdates && intent.profileUpdates.length > 0) {
+      UserProfileSpecialist.saveUpdates(intent.profileUpdates);
     }
   },
 
@@ -46,6 +57,12 @@ const Manager = {
     }
     if (intent.tipe === 'update_docs') {
       return this._handleUpdateDocs(chatId, text, intent);
+    }
+    if (intent.tipe === 'audit_code') {
+      return this._handleAuditCode(chatId, text, intent);
+    }
+    if (intent.tipe === 'fix_audit') {
+      return this._handleFixAudit(chatId, text, intent);
     }
     return this._handleChatBiasa(chatId, text, intent, context.riwayat);
   },
@@ -83,14 +100,56 @@ const Manager = {
     return result;
   },
 
+  _handleAuditCode(chatId, text, intent) {
+    const scope = (intent.audit_code && intent.audit_code.scope)
+                  ? intent.audit_code.scope
+                  : 'full';
+    const result = CodeAuditor.runAudit(scope);
+
+    ChatHistoryRepository.save(chatId, 'user', text);
+    ChatHistoryRepository.save(chatId, 'ai', result);
+    return result;
+  },
+
+  _handleFixAudit(chatId, text, intent) {
+    const scope = (intent.fix_audit && intent.fix_audit.scope)
+                  ? intent.fix_audit.scope
+                  : 'all';
+    const result = CodeAuditor.fixIssues(scope);
+
+    ChatHistoryRepository.save(chatId, 'user', text);
+    ChatHistoryRepository.save(chatId, 'ai', result);
+    return result;
+  },
+
   _handleChatBiasa(chatId, text, intent, riwayat) {
-    const finalText = ChatSpecialist.needsWebSearch(intent)
-      ? this._handleChatWithWebSearch(text, intent, riwayat)
-      : (intent.jawabanChat || 'Hmm, boleh diulang lagi?');
+    let finalText;
+
+    if (ChatSpecialist.needsWebSearch(intent)) {
+      finalText = this._handleChatWithWebSearch(text, intent, riwayat);
+    } else if (intent.complexity === 'heavy') {
+      finalText = this._handleHeavyChat(text, intent, riwayat);
+    } else {
+      finalText = intent.jawabanChat || 'Hmm, boleh diulang lagi?';
+    }
 
     ChatHistoryRepository.save(chatId, 'user', text);
     ChatHistoryRepository.save(chatId, 'ai', finalText);
     return finalText;
+  },
+
+  _handleHeavyChat(text, intent, riwayat) {
+    AppLogger.info('MANAGER_HEAVY_CHAT', 'Escalating to advanced chain');
+    const result = LLMProviderService.generate({
+      chain: 'advanced',
+      systemInstruction: ChatSpecialist.buildSystemPersona(),
+      messages: riwayat.concat([{ role: 'user', text: text }]),
+      temperature: 0.7
+    });
+    if (result && result.text) {
+      return result.text;
+    }
+    return intent.jawabanChat || 'Waduh, aku lagi kesulitan mikir yang dalam nih. Coba lagi ya.';
   },
 
   _handleChatWithWebSearch(text, intent, riwayat) {
