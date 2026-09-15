@@ -27,7 +27,12 @@ const Config = {
       githubToken: props.getProperty('GITHUB_TOKEN'),
       githubRepoOwner: props.getProperty('GITHUB_REPO_OWNER'),
       githubRepoName: props.getProperty('GITHUB_REPO_NAME'),
-      githubBranch: props.getProperty('GITHUB_BRANCH')
+      githubBranch: props.getProperty('GITHUB_BRANCH'),
+      
+      // OpenRouter Configurations
+      openrouterApiKey: props.getProperty('OPENROUTER_API_KEY'),
+      openrouterModelAdvanced: props.getProperty('OPENROUTER_MODEL_ADVANCED') || 'deepseek/deepseek-chat',
+      openrouterModelFast: props.getProperty('OPENROUTER_MODEL_FAST') || 'google/gemini-2.0-flash-001'
     };
     return this._cache;
   },
