@@ -3,12 +3,17 @@
  * INTENT ANALYZER
  * Tanggung jawab: bangun prompt analisis intent, panggil LLM,
  * parse hasilnya jadi objek intent.
+ *
+ * OPTIMASI KECEPATAN:
+ * - Chain "fast" (Gemini Flash) dipakai untuk intent analysis.
+ * - LLM sendiri yang menentukan complexity (light/heavy) dari pesan.
+ * - Jika heavy, Manager akan panggil LLM advanced untuk jawaban mendalam.
  * ===================================================================
  */
 const IntentAnalyzer = {
   analyze(userMessage, context) {
     const prompt = this._buildPrompt(userMessage, context);
-    const result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'advanced');
+    const result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'fast');
 
     if (!result) {
       AppLogger.error('INTENT_ANALYZER_ALL_PROVIDERS_FAILED', 'Semua provider gagal merespons');
@@ -21,7 +26,7 @@ const IntentAnalyzer = {
     const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     try {
       const parsed = JSON.parse(cleaned);
-      AppLogger.info('INTENT_ANALYZER_SUCCESS', 'Provider: ' + providerName);
+      AppLogger.info('INTENT_ANALYZER_SUCCESS', 'Provider: ' + providerName + ' | Complexity: ' + (parsed.complexity || 'light'));
       return parsed;
     } catch (err) {
       AppLogger.warning('INTENT_ANALYZER_PARSE_ERROR',
@@ -40,6 +45,10 @@ const IntentAnalyzer = {
       this._riwayatSection(context.riwayat),
       '',
       this._factsSection(context.facts),
+      '',
+      this._profileSection(context.profile),
+      '',
+      this._ltmSection(context.ltm),
       '',
       this._reminderSection(context.reminderMenunggu),
       '',
@@ -78,6 +87,20 @@ const IntentAnalyzer = {
     return '=== FAKTA YANG SUDAH DIKETAHUI TENTANG USER ===\n' + isi;
   },
 
+  _profileSection(profile) {
+    const isi = (profile && profile.length > 0)
+      ? profile.map(p => '- ' + p).join('\n')
+      : 'Belum ada profil tersimpan tentang user.';
+    return '=== PROFIL USER (terekstrak otomatis dari percakapan) ===\n' + isi;
+  },
+
+  _ltmSection(ltm) {
+    const isi = (ltm && ltm.length > 0)
+      ? ltm.map(m => '- ' + m).join('\n')
+      : 'Belum ada ringkasan percakapan tersimpan.';
+    return '=== INGATAN JANGKA PANJANG (ringkasan percakapan hari-hari sebelumnya) ===\n' + isi;
+  },
+
   _reminderSection(reminderMenunggu) {
     const isi = (reminderMenunggu && reminderMenunggu.length > 0)
       ? reminderMenunggu.map(r =>
@@ -99,7 +122,8 @@ const IntentAnalyzer = {
       'TUGASMU: Analisis pesan di atas, balas HANYA dalam format JSON murni',
       '(tanpa markdown fence, tanpa penjelasan di luar JSON):',
       '{',
-      '  "tipe": "ack_reminder" | "buat_reminder" | "chat_biasa" | "diagnose_error" | "update_docs",',
+      '  "tipe": "ack_reminder" | "buat_reminder" | "chat_biasa" | "diagnose_error" | "update_docs" | "audit_code" | "fix_audit",',
+      '  "complexity": "light" | "heavy",',
       '  "aksiReminder": "done" | "snooze" | null,',
       '  "reminderId": "ID_atau_null",',
       '  "snoozeMinit": angka_atau_null,',
@@ -110,17 +134,30 @@ const IntentAnalyzer = {
       '  "recurringConfig": "atau kosong",',
       '  "prioritas": "Normal" | "Tinggi" | "Rendah",',
       '  "catatan": "atau kosong",',
-      '  "jawabanChat": "jawaban natural, WAJIB diisi kalau tipe chat_biasa DAN butuhInfoTerkini false",',
+      '  "jawabanChat": "jawaban natural, WAJIB diisi kalau tipe chat_biasa DAN butuhInfoTerkini false. Untuk complexity light, jawaban lengkap. Untuk heavy, jawaban singkat saja (nanti diperluas oleh model advanced).",',
       '  "butuhInfoTerkini": true_atau_false,',
       '  "searchQuery": "kata kunci pencarian singkat, WAJIB diisi kalau butuhInfoTerkini true, selain itu null",',
       '  "factsBaru": ["fakta baru yang EKSPLISIT disebutkan user, kosongkan jika',
       '    tidak ada, JANGAN ulangi fakta yang sudah ada di atas"],',
       '  "diagnose_error": {',
-      '    "keluhanUser": "string - ringkasan keluhan user atau apa yang tidak bekerja pada bot atau null"',
+      '    "keluhanUser": "string - ringkasan keluhan user atau null"',
       '  },',
       '  "update_docs": {',
-      '    "instruksi": "string - apa yang ingin diupdate di file dokumentasi atau null"',
-      '  }',
+      '    "instruksi": "string - apa yang ingin diupdate atau null"',
+      '  },',
+      '  "audit_code": {',
+      '    "scope": "full" | "light"',
+      '  },',
+      '  "fix_audit": {',
+      '    "scope": "all" | "critical" | "critical+warning"',
+      '  },',
+      '  "profileUpdates": [',
+      '    {',
+      '      "key": "nama_key_singkat (misal: work_schedule, hobby, goal_bisnis)",',
+      '      "value": "nilai faktual yang user sebutkan",',
+      '      "category": "schedule | preference | goal | constraint | habit | emotion | general"',
+      '    }',
+      '  ]',
       '}'
     ].join('\n');
   },
@@ -137,9 +174,39 @@ const IntentAnalyzer = {
       '- butuhInfoTerkini = true HANYA kalau user menanyakan sesuatu yang butuh',
       '  data real-time/terkini (berita, harga saat ini, cuaca, hasil pertandingan,',
       '  event terbaru, dll) yang TIDAK MUNGKIN kamu tahu dari pengetahuan statis.',
-      '  Untuk pertanyaan umum/pengetahuan umum, tetap gunakan jawabanChat biasa.',
-      '- diagnose_error dipicu jika user mengeluhkan tentang dirimu yang error, tidak merespons, macet, gagal berpikir, melambat, atau anomali sistem lainnya.',
-      '- update_docs dipicu jika user secara eksplisit meminta kamu mengupdate dokumen proyek, merubah PROGRESS.md, merubah ARCHITECTURE.md, atau merubah catatan arsitektur/progress.'
+      '- diagnose_error dipicu jika user mengeluhkan tentang dirimu yang error,',
+      '  tidak merespons, macet, gagal berpikir, melambat, atau anomali sistem.',
+      '- update_docs dipicu jika user meminta kamu mengupdate dokumen proyek.',
+      '- audit_code dipicu jika user meminta review/audit kode.',
+      '- fix_audit dipicu jika user merespons hasil audit dengan meminta perbaikan.',
+      '',
+      'PANDUAN COMPLEXITY (SANGAT PENTING):',
+      '- "light" = pesan yang bisa dijawab dengan pengetahuan umum, obrolan santai,',
+      '  konfirmasi singkat, pertanyaan faktual sederhana, sapaan, atau tugas',
+      '  administratif (reminder, catatan). Contoh: "apa kabar?", "besok ingetin',
+      '  aku beli susu", "makasih", "iya deh".',
+      '- "heavy" = pesan yang butuh reasoning mendalam, analisis multi-faktor,',
+      '  penjelasan konsep kompleks, brainstorming, strategi, perbandingan, atau',
+      '  saran yang perlu pertimbangan konteks user secara utuh. Contoh:',
+      '  "analisis untung rugi usaha X", "jelaskan konsep quantum computing",',
+      '  "buatkan strategi marketing", "kenapa X lebih baik dari Y?".',
+      '- Untuk tipe selain chat_biasa (reminder, ack, dll), complexity biasanya "light".',
+      '- Untuk diagnose_error, update_docs, audit_code, fix_audit: complexity "heavy".',
+      '- Jangan asal pilih heavy. Kalau ragu, pilih light. User lebih suka jawaban',
+      '  cepat yang cukup baik daripada jawaban lama yang sempurna.',
+      'PANDUAN PROFILE UPDATES:',
+      '- Setiap kali user menyebutkan informasi personal yang BARU atau BERUBAH,',
+      '  ekstrak ke array profileUpdates. Contoh informasi yang perlu diekstrak:',
+      '  * Jadwal kerja, rutinitas, kebiasaan',
+      '  * Tujuan, target, rencana',
+      '  * Preferensi (makanan, gaya komunikasi, hobi)',
+      '  * Kendala atau batasan (waktu, budget, lokasi)',
+      '  * Kondisi emosional yang eksplisit disebutkan',
+      '- JANGAN ekstrak informasi yang sudah ada di FAKTA YANG SUDAH DIKETAHUI.',
+      '- JANGAN mengarang informasi yang tidak user sebutkan.',
+      '- Jika tidak ada info baru, kirim array kosong: "profileUpdates": []',
+      '- Gunakan key yang konsisten. Contoh: "work_schedule", "business_goal",',
+      '  "food_preference", "budget_constraint".'
     ].join('\n');
   }
 };
