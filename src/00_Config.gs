@@ -1,6 +1,7 @@
 /**
  * ===================================================================
  * CONFIG
+ * Membaca Script Properties dan cache untuk performa.
  * ===================================================================
  */
 const Config = {
@@ -22,8 +23,21 @@ const Config = {
       sharedSecret: props.getProperty('SHARED_SECRET'),
       googleSearchApiKey: props.getProperty('GOOGLE_SEARCH_API_KEY'),
       googleSearchEngineId: props.getProperty('GOOGLE_SEARCH_ENGINE_ID'),
-      tavilyApiKey: props.getProperty('TAVILY_API_KEY')
+      tavilyApiKey: props.getProperty('TAVILY_API_KEY'),
+      githubToken: props.getProperty('GITHUB_TOKEN'),
+      githubRepoOwner: props.getProperty('GITHUB_REPO_OWNER'),
+      githubRepoName: props.getProperty('GITHUB_REPO_NAME'),
+      githubBranch: props.getProperty('GITHUB_BRANCH')
     };
     return this._cache;
+  },
+
+  clearCache() {
+    this._cache = null;
+  },
+
+  reload() {
+    this.clearCache();
+    return this.load();
   }
 };
