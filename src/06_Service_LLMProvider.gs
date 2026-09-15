@@ -3,16 +3,18 @@
  * LLM PROVIDER SERVICE (ORCHESTRATOR — CHAIN BASED)
  * Tanggung jawab: jalankan chain fallback sesuai kebutuhan tugas.
  *
- * - Chain 'advanced': untuk tugas yang butuh reasoning terbaik
- *   (analisis intent + percakapan natural). Urutan coba:
- *   Pro Preview -> Flash -> Flash Lite -> Groq
- * - Chain 'fast': untuk tugas sempit/mekanis (misal meringkas hasil
- *   pencarian). Urutan coba: Flash -> Flash Lite -> Groq
+ * - Chain 'advanced': OpenRouter (DeepSeek V3/Sonnet) -> Gemini Pro Preview -> Gemini Flash -> Groq
+ * - Chain 'fast': OpenRouter (Gemini 2.0 Flash / DeepSeek) -> Gemini Flash -> Groq
  * ===================================================================
  */
 const LLMProviderService = {
   CHAINS: {
     advanced: [
+      {
+        label: 'openrouter-advanced',
+        execute: (sys, msgs, temp) =>
+          OpenRouterProvider.call(sys, msgs, temp, Config.load().openrouterModelAdvanced)
+      },
       {
         label: 'gemini-pro-preview',
         execute: (sys, msgs, temp) =>
@@ -34,6 +36,11 @@ const LLMProviderService = {
       }
     ],
     fast: [
+      {
+        label: 'openrouter-fast',
+        execute: (sys, msgs, temp) =>
+          OpenRouterProvider.call(sys, msgs, temp, Config.load().openrouterModelFast)
+      },
       {
         label: 'gemini-flash',
         execute: (sys, msgs, temp) =>
