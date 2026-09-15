@@ -1,4 +1,4 @@
-# ARCHITECTURE.md — ai-agent-telegram
+# ARCHITECTURE.md ? ai-agent-telegram
 
 > Dokumen ini menjelaskan arsitektur sistem apa adanya, berdasarkan pembacaan
 > langsung terhadap seluruh source code di `src/`. Tujuannya supaya AI atau
@@ -13,7 +13,7 @@ database**. Satu pemilik/satu chat ID (bukan multi-tenant). Fitur utama:
 
 - Percakapan natural language dengan pemahaman intent (via LLM)
 - Reminder/pengingat dengan pola recurring & acknowledge natural
-- Pencatatan keuangan (wallet, transaksi, budget) — **backend sudah jadi, tapi belum tersambung ke jalur percakapan**, lihat §8 dan PROGRESS.md
+- Pencatatan keuangan (wallet, transaksi, budget) ? **backend sudah jadi, tapi belum tersambung ke jalur percakapan**, lihat ?8 dan PROGRESS.md
 - Penyimpanan "fakta" tentang user (memory jangka panjang sederhana)
 - Web search sebagai konteks tambahan saat user butuh info terkini
 - Backup & otomatisasi repositori via **GitHubOps Service** (source code + dokumentasi)
@@ -42,9 +42,9 @@ Tidak ada framework eksternal, tidak ada `npm`/build step. Semua file
   `access: ANYONE_ANONYMOUS` (lihat `appsscript.json`).
 - Karena aksesnya anonim secara Google-level, keamanan diserahkan ke
   aplikasi sendiri: **shared secret di query param** + **allowlist satu
-  chat ID** (lihat §9 Security Model).
+  chat ID** (lihat ?9 Security Model).
 - Reminder checker, pemantauan Self-Healing, dan GitHubOps berjalan lewat **time-based trigger**,
-  bukan dipicu oleh request user.
+bukan dipicu oleh request user.
 
 ## 4. Peta Modul & Komponen Script
 
@@ -86,7 +86,7 @@ lapisan dari "paling dasar" ke "paling luar".
 | `12_Service_GitHubOps.gs` | Backup otomatis kode sumber, dokumentasi repo, dan pemantauan kesehatan GitHub ops. |
 | `99_Tests.gs` | Script manual testing & verifikasi integrasi internal. |
 
-Semua modul ditulis sebagai **object literal** (`const X = {...}`), bukan `class`. Tidak ada dependency injection — modul saling memanggil lewat nama global langsung.
+Semua modul ditulis sebagai **object literal** (`const X = {...}`), bukan `class`. Tidak ada dependency injection ? modul saling memanggil lewat nama global langsung.
 
 ## 5. Alur Data Utama (Request Lifecycle)
 
@@ -100,7 +100,7 @@ Telegram -> doPost(e) [10_Handler_Webhook]
   5. Jika teks cocok command eksplisit (CommandRouter.isKnownCommand)
        -> CommandRouter.handle() -> balas langsung (fast path, TANPA panggil LLM)
   6. Selain itu (conversational path):
-       a. Kirim placeholder message dulu ("⏳ Bentar, lagi mikir...")
+       a. Kirim placeholder message dulu ("? Bentar, lagi mikir...")
        b. Manager.processConversationalMessage(chatId, text):
           - _gatherContext(): ambil 15 riwayat chat terakhir, 50 fakta aktif,
             reminder yang sedang menunggu respon, 10 pola ack terakhir
