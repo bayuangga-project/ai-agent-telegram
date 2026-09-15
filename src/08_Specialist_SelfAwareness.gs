@@ -374,3 +374,20 @@ var SelfAwareness = {
     }
   }
 };
+
+function test_OpenRouterIntegration() {
+  Logger.log('=== TEST OPENROUTER ===');
+  const result = LLMProviderService.generateFromSinglePrompt(
+    'Jelaskan dalam 1 kalimat apa itu OpenRouter.',
+    0.7,
+    'fast'
+  );
+  
+  if (result) {
+    Logger.log('✅ SUKSES!');
+    Logger.log('Provider: ' + result.provider);
+    Logger.log('Respon: ' + result.text);
+  } else {
+    Logger.log('❌ GAGAL! Periksa log.');
+  }
+}
