@@ -13,8 +13,7 @@ database**. Satu pemilik/satu chat ID (bukan multi-tenant). Fitur utama:
 
 - Percakapan natural language dengan pemahaman intent (via LLM)
 - Reminder/pengingat dengan pola recurring & acknowledge natural
-- Pencatatan keuangan (wallet, transaksi, budget) ? **backend sudah jadi,
-  tapi belum tersambung ke jalur percakapan**, lihat ?8 dan PROGRESS.md
+- Pencatatan keuangan (wallet, transaksi, budget) ? **backend sudah jadi, tapi belum tersambung ke jalur percakapan**, lihat ?8 dan PROGRESS.md
 - Penyimpanan "fakta" tentang user (memory jangka panjang sederhana)
 - Web search sebagai konteks tambahan saat user butuh info terkini
 - Backup & otomatisasi repositori via **GitHubOps Service** (source code + dokumentasi)
@@ -47,106 +46,98 @@ Tidak ada framework eksternal, tidak ada `npm`/build step. Semua file
 - Reminder checker, pemantauan Self-Healing, dan GitHubOps berjalan lewat **time-based trigger**,
   bukan dipicu oleh request user.
 
-## 4. Peta Modul (urutan angka di nama file = urutan tanggung jawab, BUKAN urutan load yang wajib)
+## 4. Peta Modul & Komponen Script
 
 Penomoran prefix (`00_`, `01_`, ... `12_`) dipakai untuk memudahkan
 navigasi manusia di editor GAS (file diurutkan alfabetis), merepresentasikan
-lapisan dari "paling dasar" ke "paling luar". Bukan berarti file 05 boleh
-memanggil isi file 09 secara langsung di top-level ? lihat **Lazy
-Evaluation Rule** di ?7.
+lapisan dari "paling dasar" ke "paling luar".
 
+| Nama File | Deskripsi Komponen & Tanggung Jawab |
+|---|---|
+| `00_Config.gs` | Pengelolaan konfigurasi environment (Script Properties) dengan caching. |
+| `01_SpreadsheetGateway.gs` | Abstraksi akses low-level ke Google Sheets dengan mekanisme retry logic. |
+| `02_Utils.gs` | Utility helper: `IdGenerator` (ID unik) & `DateTimeUtils` (pengelolaan waktu WIB/UTC+7). |
+| `03_AppLogger.gs` | Sistem pencatatan log (logging) ke sheet `Log_System` secara fail-silent. |
+| `03_Service_SelfHealing.gs` | Deteksi error, pemulihan otomatis (auto-recovery trigger), dan pemantauan kesehatan sistem. |
+| `04_Repository_AckPatterns.gs` | Akses data pola acknowledge reminder di sheet `Reminder_AckPatterns`. |
+| `04_Repository_Budget.gs` | Akses data anggaran/budget bulanan di sheet `Finance_Budgets`. |
+| `04_Repository_ChatHistory.gs` | Akses data riwayat percakapan Telegram di sheet `Chat_History`. |
+| `04_Repository_Documentation.gs` | Akses data dokumen arsitektur dan progres di sheet `Documentation`. |
+| `04_Repository_Facts.gs` | Akses data fakta & memori jangka panjang di sheet `Memory_Facts`. |
+| `04_Repository_Reminder.gs` | Akses data pengingat/reminder di sheet `Reminder_RawData`. |
+| `04_Repository_Transaction.gs` | Akses data transaksi keuangan (pemasukan/pengeluaran) di sheet `Finance_Transactions`. |
+| `04_Repository_Wallet.gs` | Akses data dompet/kas di sheet `Finance_Wallets`. |
+| `05_Service_Telegram.gs` | Integrasi Telegram Bot API (kirim/edit pesan) + Telegram Payload Fallback Parser. |
+| `06_Service_LLM.gs` | LLM Orchestrator utama & pencetus fallback chain (`advanced` vs `fast`). |
+| `06_Service_LLMGemini.gs` | Provider LLM untuk Google Gemini API (Pro Preview, Flash, Flash-Lite). |
+| `06_Service_LLMGroq.gs` | Provider LLM fallback menggunakan Groq API (`openai/gpt-oss-20b`). |
+| `07_Service_WebSearch.gs` | Web Search Orchestrator dengan fallback antar provider search. |
+| `07_Service_WebSearchGoogle.gs` | Provider pencarian web menggunakan Google Custom Search Engine (CSE) API. |
+| `07_Service_WebSearchTavily.gs` | Provider pencarian web fallback menggunakan Tavily API. |
+| `08_Specialist_Chat.gs` | Business logic respons percakapan umum & integrasi search context. |
+| `08_Specialist_Finance.gs` | Business logic manajemen keuangan (wallet, transaksi, laporan, budget). |
+| `08_Specialist_Knowledge.gs` | Business logic ekstraksi dan pengelolaan memori fakta user. |
+| `08_Specialist_Reminder.gs` | Business logic siklus pengingat, notifikasi, ack status, dan recurring context. |
+| `09_CommandRouter.gs` | Fast-path handler untuk perintah eksplisit (misal `/ingat`, `/reminder`). |
+| `09_Manager.gs` | Orchestrator utama alur percakapan natural dan koordinasi modul Specialist. |
+| `09_ManagerIntentAnalyzer.gs` | Komponen penentu intent user berbasis LLM dengan output JSON terstruktur. |
+| `10_Handler_Webhook.gs` | Entry point `doPost(e)` HTTP POST dari Telegram webhook. |
+| `11_Trigger_ReminderChecker.gs` | Entry point time-based trigger per menit untuk pengecekan reminder. |
+| `12_Service_GitHubOps.gs` | Backup otomatis kode sumber, dokumentasi repo, dan pemantauan kesehatan GitHub ops. |
+| `99_Tests.gs` | Script manual testing & verifikasi integrasi internal. |
 
-00_Config.gs                   ? baca Script Properties (env vars), di-cache
-01_SpreadsheetGateway.gs       ? satu-satunya titik akses low-level ke Google Sheets
-02_Utils.gs                    ? IdGenerator, DateTimeUtils (WIB handling)
-03_AppLogger.gs                ? tulis log ke sheet "Log_System"
-03_Service_SelfHealing.gs      ? deteksi error, pemulihan otomatis (auto-recovery) & kesehatan sistem
-04_Repository_*.gs (7 file)    ? satu repository per domain data (lihat ?6)
-05_Service_Telegram.gs         ? titik kirim/edit pesan + Fallback Parser Telegram payload
-06_Service_LLM*.gs (3 file)    ? orchestrator + 2 provider LLM (Gemini, Groq)
-07_Service_WebSearch*.gs (3 file) ? orchestrator + 2 provider search (Google, Tavily)
-08_Specialist_*.gs (4 file)    ? business logic per domain (Chat, Finance, Knowledge, Reminder)
-09_Manager*.gs (2 file)        ? orchestrator percakapan + intent analyzer (LLM-based)
-09_CommandRouter.gs            ? fast path untuk command eksplisit (mis. /ingat)
-10_Handler_Webhook.gs          ? entry point doPost() dari Telegram (menggunakan Fallback Parser)
-11_Trigger_ReminderChecker.gs  ? entry point time-based trigger (tiap 1 menit)
-12_Service_GitHubOps.gs        ? GitHubOps: backup source code, sync docs, dan otomatisasi repo GitHub
-99_Tests.gs                    ? fungsi test manual (dijalankan dari editor GAS)
-
-
-Semua modul ditulis sebagai **object literal** (`const X = {...}`), bukan
-`class`. Tidak ada dependency injection ? modul saling memanggil lewat
-nama global langsung (mis. `WalletRepository.findByName(...)`).
+Semua modul ditulis sebagai **object literal** (`const X = {...}`), bukan `class`. Tidak ada dependency injection ? modul saling memanggil lewat nama global langsung.
 
 ## 5. Alur Data Utama (Request Lifecycle)
 
 ### 5a. Pesan masuk dari Telegram (jalur percakapan & parsing resilient)
 
-
-Telegram ? doPost(e) [10_Handler_Webhook]
-  1. Validasi secret param vs Config.sharedSecret     ? tolak jika salah
-  2. Ekstraksi Payload via Telegram Fallback Parser  ? parse aman (message, edited_message, callback_query)
-  3. Cek duplikasi update_id via CacheService (TTL 6 jam) ? skip jika duplikat
-  4. Cek chatId vs Config.myChatId (allowlist 1 user) ? tolak jika bukan owner
+Telegram -> doPost(e) [10_Handler_Webhook]
+  1. Validasi secret param vs Config.sharedSecret -> tolak jika salah
+  2. Ekstraksi Payload via Telegram Fallback Parser -> parse aman (message, edited_message, callback_query)
+  3. Cek duplikasi update_id via CacheService (TTL 6 jam) -> skip jika duplikat
+  4. Cek chatId vs Config.myChatId (allowlist 1 user) -> tolak jika bukan owner
   5. Jika teks cocok command eksplisit (CommandRouter.isKnownCommand)
-       ? CommandRouter.handle() ? balas langsung (fast path, TANPA panggil LLM)
+       -> CommandRouter.handle() -> balas langsung (fast path, TANPA panggil LLM)
   6. Selain itu (conversational path):
        a. Kirim placeholder message dulu ("? Bentar, lagi mikir...")
        b. Manager.processConversationalMessage(chatId, text):
           - _gatherContext(): ambil 15 riwayat chat terakhir, 50 fakta aktif,
             reminder yang sedang menunggu respon, 10 pola ack terakhir
           - IntentAnalyzer.analyze(text, context):
-              ? bangun 1 prompt besar (persona + semua konteks di atas + pesan user
-                + skema output JSON yang diminta)
-              ? panggil LLMProviderService.generate({chain:'advanced', ...})
-              ? parse response jadi objek intent (JSON)
-          - Jika intent gagal di-parse ? fallback: panggil LLM chain 'advanced'
+              - bangun 1 prompt besar (persona + semua konteks di atas + pesan user + skema output JSON)
+              - panggil LLMProviderService.generate({chain:'advanced', ...})
+              - parse response jadi objek intent (JSON)
+          - Jika intent gagal di-parse -> fallback: panggil LLM chain 'advanced'
             langsung dengan riwayat chat mentah (tanpa struktur intent)
           - _routeIntent() berdasar intent.tipe:
-              "ack_reminder"  ? ReminderSpecialist.acknowledge(...)
-              "buat_reminder" ? ReminderSpecialist.create(...)
-              lainnya (termasuk "chat_biasa") ? _handleChatBiasa()
-                ? jika intent butuh info terkini ? WebSearchProviderService.search()
-                  lalu ChatSpecialist.respondWithSearchContext()
-                ? jika tidak ? pakai intent.jawabanChat langsung (LLM sudah
-                  menjawab sekaligus saat analisis intent, hemat 1 API call)
+              "ack_reminder"  -> ReminderSpecialist.acknowledge(...)
+              "buat_reminder" -> ReminderSpecialist.create(...)
+              lainnya (termasuk "chat_biasa") -> _handleChatBiasa()
+                - jika intent butuh info terkini -> WebSearchProviderService.search() lalu ChatSpecialist.respondWithSearchContext()
+                - jika tidak -> pakai intent.jawabanChat langsung (LLM sudah menjawab sekaligus saat analisis intent, hemat 1 API call)
           - Simpan fakta baru yang terdeteksi (KnowledgeSpecialist.saveAutoDetectedFacts)
           - Simpan riwayat chat (ChatHistoryRepository.save, role user & ai)
-       c. TelegramService.editMessage() ? placeholder diedit jadi jawaban final
-
-
-Poin penting: jika terjadi kegagalan tak terduga selama alur di atas, modul **Self-Healing** akan menangkap exception, melakukan logging fail-safe, dan mencoba memulihkan status sesi atau memberikan tanggapan aman ke Telegram.
+       c. TelegramService.editMessage() -> placeholder diedit jadi jawaban final
 
 ### 5b. Reminder checker (jalur terjadwal, tiap 1 menit)
 
-
-Time trigger ? cekDanKirimReminder() [11_Trigger_ReminderChecker]
+Time trigger -> cekDanKirimReminder() [11_Trigger_ReminderChecker]
   1. ReminderSpecialist.getRemindersDueNow()
-     ? ReminderRepository.getActive() difilter: waktu <= sekarang (WIB) DAN
-       (belum pernah diingatkan ATAU sudah lewat cooldown 5 menit sejak
-       terakhir diingatkan)
+     -> ReminderRepository.getActive() difilter: waktu <= sekarang (WIB) DAN (belum pernah diingatkan ATAU sudah lewat cooldown 5 menit sejak terakhir diingatkan)
   2. Untuk tiap reminder due:
-     ? ReminderSpecialist.buildNotificationText() (sisipkan 1 fakta relevan
-       jika ada, dicari dari kata pertama deskripsi reminder)
-     ? TelegramService.sendMessage()
-     ? ReminderSpecialist.markAsNotified() ? increment jumlahDiingatkan,
-       update terakhirDiingatkan
+     -> ReminderSpecialist.buildNotificationText() (sisipkan 1 fakta relevan jika ada)
+     -> TelegramService.sendMessage()
+     -> ReminderSpecialist.markAsNotified() -> increment jumlahDiingatkan, update terakhirDiingatkan
 
-
-### 5c. Operasi & Backup GitHubOps (manual atau terjadwal harian jam 23:00)
-
+### 5c. Operasi & Backup GitHubOps (manual / terjadwal harian jam 23:00 WIB)
 
 runFullGitHubOps() [12_Service_GitHubOps]
-  1. Sync Source Code: baca seluruh file .gs dari Apps Script API,
-     push otomatis ke folder src/ di repositori GitHub.
-  2. Sync Dokumentasi: baca tab sheet "Documentation", push/update file markdown
-     (ARCHITECTURE.md, PROGRESS.md) ke root repositori GitHub.
-  3. Self-Check Repositori: pastikan integritas file dan kelengkapan repositori.
-
+  1. Sync Source Code: baca seluruh file `.gs` dari Apps Script API, push otomatis ke folder `src/` di repositori GitHub.
+  2. Sync Dokumentasi: baca tab sheet `Documentation`, push/update file markdown (`ARCHITECTURE.md`, `PROGRESS.md`) ke root repositori GitHub.
+  3. Self-Check Repositori: pastikan integritas file dan kelengkapan repositori GitHub.
 
 ## 6. Data Model (Google Sheets sebagai "tabel")
-
-Skema berikut disimpulkan dari urutan kolom yang dipakai tiap Repository:
 
 | Sheet | Dipakai oleh | Kolom (urutan) |
 |---|---|---|
@@ -166,22 +157,25 @@ Skema berikut disimpulkan dari urutan kolom yang dipakai tiap Repository:
 GAS memuat semua file `.gs` sebagai satu scope global. Referensi ke modul lain TIDAK BOLEH ditulis sebagai property array langsung di top-level, harus dibungkus method yang baru dievaluasi saat dipanggil.
 
 ### 7.2 Fallback Chain Pattern
-Dipakai di LLM Provider (`advanced` vs `fast`), Web Search Provider, dan **Telegram Fallback Parser**.
+Dipakai di LLM Provider (`advanced` vs `fast`), Web Search Provider, dan Telegram Fallback Parser.
 
 ### 7.3 Waktu selalu dalam WIB
 `DateTimeUtils` adalah satu-satunya tempat yang boleh melakukan konversi/format waktu terkait zona WIB.
 
 ### 7.4 Self-Healing & System Resilience Pattern
-`SelfHealingService` memantau kesehatan eksekusi runtime. Jika terjadi unhandled runtime error, kuota API terlampaui, atau trigger terhenti, `SelfHealingService` akan secara otomatis:
+`SelfHealingService` memantau kesehatan eksekusi runtime. Jika terjadi unhandled runtime error, kuota API terlampaui, atau trigger terhenti, `SelfHealingService` secara otomatis:
 - Melakukan retry bertahap (exponential backoff).
 - Melakukan reset/repair trigger terjadwal yang rusak atau terlewat.
 - Mengisolasi kesalahan tanpa membuat Webhook Telegram mati (tetap me-return HTTP 200 ke Telegram).
 
 ### 7.5 Telegram Payload Fallback Parser
-Payload Webhook dari Telegram memiliki beragam variasi (`message`, `edited_message`, `callback_query`, `channel_post`). Telegram Fallback Parser di `TelegramService` secara fleksibel mengekstrak `chatId`, `text`, `user`, dan `messageId` melalui inspeksi struktur bertingkat sehingga mencegah `TypeError` saat struktur payload tidak biasa.
+Payload Webhook dari Telegram memiliki beragam variasi (`message`, `edited_message`, `callback_query`, `channel_post`). Telegram Fallback Parser di `TelegramService` mengekstrak `chatId`, `text`, `user`, dan `messageId` melalui inspeksi struktur bertingkat sehingga mencegah crash runtime.
 
-### 7.6 GitHubOps Architecture Pattern
-Modul `GitHubOpsService` menggantikan skrip backup pasif dengan pola GitHubOps terintegrasi. Selain melakukan push kode dan dokumen secara berkala ke GitHub, modul ini menyediakan mekanisme otomatisasi synchronization untuk menjaga agar repositori GitHub dan Google Apps Script tetap selaras.
+### 7.6 GitHubOps & Repository Backup Strategy Pattern
+Modul `GitHubOpsService` mengelola sinkronisasi dua arah dan pembackup-an repositori:
+- **Source Code Sync**: Menyinkronkan seluruh script dari Apps Script ke folder `src/` di GitHub.
+- **Documentation Sync**: Menyinkronkan isi sheet `Documentation` ke file root `ARCHITECTURE.md` & `PROGRESS.md`.
+- **Prosedur Pemulihan (Disaster Recovery)**: Jika Apps Script bermasalah, seluruh source code dapat direstok langsung dari folder `src/` repositori GitHub, dan sheet `Documentation` dapat diisi ulang dari file markdown GitHub.
 
 ## 8. Batas Integrasi Saat Ini (Known Gap)
 
@@ -194,9 +188,16 @@ Modul `GitHubOpsService` menggantikan skrip backup pasif dengan pola GitHubOps t
 - Dedup `update_id` via `CacheService` (TTL 6 jam).
 - API Key disimpan aman di **Script Properties**.
 
-## 10. Dokumentasi Ini Disimpan Di Mana?
+## 10. Catatan Backup & Pemeliharaan Repositori GitHub
 
-Source of truth dokumentasi (`ARCHITECTURE.md`, `PROGRESS.md`) ada di sheet **Documentation** (kolom `fileName`, `content`), disinkronkan secara otomatis ke root repo GitHub melalui `GitHubOpsService`.
+1. **Trigger Terjadwal GitHubOps**: Dijalankan otomatis setiap hari jam 23:00 WIB via `runFullGitHubOps()`.
+2. **Kredensial Wajib**:
+   - `GITHUB_TOKEN`: Personal Access Token (PAT) GitHub dengan scope `repo`.
+   - `GITHUB_REPO_OWNER`: Username / nama organisasi pemilik repo.
+   - `GITHUB_REPO_NAME`: Nama repositori target.
+   - `GITHUB_BRANCH`: Branch target (default: `main`).
+3. **Eksekusi Backup Manual**:
+   - Panggil fungsi `GitHubOpsService.runFullGitHubOps()` langsung dari editor GAS untuk backup instan.
 
 ## 11. Referensi Konfigurasi (Script Properties)
 
