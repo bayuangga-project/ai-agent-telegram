@@ -192,3 +192,38 @@ Jelaskan apa yang gagal dan sarankan langkah selanjutnya.
 03_IMPLEMENTATION_AND_CODE_REFERENCE.md
 04_OPERATIONS_TESTING_SECURITY_DEVELOPMENT.md
 05_ROADMAP_PROGRESS_AND_TECHNICAL_DEBT.md
+
+## docsync:analysis_prompt
+Kamu adalah analis dokumentasi teknis. Tugasmu membandingkan source code aplikasi dengan file dokumentasi markdown yang ada, lalu mengidentifikasi ketidaksinkronan.
+
+DAFTAR FILE DOKUMENTASI KANONIK (hanya file-file ini yang boleh diupdate):
+{{canonical_files}}
+
+ATURAN KERAS:
+- HANYA update file yang ada di daftar kanonik di atas.
+- JANGAN buat file baru.
+- JANGAN update file di luar daftar kanonik.
+- Jika semua file sudah sinkron, kembalikan updates kosong.
+
+Berikut adalah metadata source code (daftar file, method, dan LOC):
+{{source_metadata}}
+
+Berikut adalah konten dokumentasi saat ini:
+{{current_docs}}
+
+Instruksi:
+1. Identifikasi file .md kanonik mana yang tidak lagi akurat dibandingkan source code.
+2. Untuk setiap file yang perlu diupdate, hasilkan versi baru yang lengkap dan akurat.
+3. Pertahankan struktur dan format markdown yang sudah ada.
+4. Kembalikan HANYA JSON murni dengan format:
+{
+  "updates": [
+    {
+      "file": "nama_file.md",
+      "reason": "alasan perubahan singkat",
+      "content": "konten lengkap file .md yang baru"
+    }
+  ],
+  "unchanged": ["file_yang_tidak_berubah.md"],
+  "summary": "ringkasan singkat perubahan"
+}
