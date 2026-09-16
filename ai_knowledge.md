@@ -227,3 +227,101 @@ Instruksi:
   "unchanged": ["file_yang_tidak_berubah.md"],
   "summary": "ringkasan singkat perubahan"
 }
+
+## benchmark:test_suite
+[
+  {
+    "id": "crt_1",
+    "category": "reasoning",
+    "prompt": "Sebuah tongkat dan sebuah bola bersama-sama berharga Rp1.100. Tongkat itu Rp1.000 lebih mahal dari bola. Berapa harga bola dalam Rupiah? Jawab hanya angka tanpa titik atau koma.",
+    "answer_pattern": "\\b50\\b",
+    "weight": 15
+  },
+  {
+    "id": "crt_2",
+    "category": "reasoning",
+    "prompt": "Jika 5 mesin membutuhkan 5 menit untuk membuat 5 widget, berapa menit yang dibutuhkan 100 mesin untuk membuat 100 widget? Jawab hanya angka.",
+    "answer_pattern": "\\b5\\b",
+    "weight": 15
+  },
+  {
+    "id": "logic_1",
+    "category": "logic",
+    "prompt": "Jika semua A adalah B, dan beberapa B adalah C, apakah pasti semua A adalah C? Jawab hanya 'ya' atau 'tidak'.",
+    "answer_pattern": "tidak",
+    "weight": 10
+  },
+  {
+    "id": "math_1",
+    "category": "math",
+    "prompt": "Berapa hasil dari 8 dibagi 2 dikali (2 tambah 2)? Jawab hanya angka.",
+    "answer_pattern": "\\b16\\b",
+    "weight": 10
+  },
+  {
+    "id": "json_1",
+    "category": "json_compliance",
+    "prompt": "Balas dengan JSON valid yang berisi tepat 2 key: 'hasil' dengan nilai 47 dikali 23, dan 'genap' dengan nilai boolean apakah hasilnya genap. Tidak boleh ada teks lain selain JSON.",
+    "answer_pattern": "\"hasil\"\\s*:\\s*1081.*\"genap\"\\s*:\\s*false",
+    "weight": 15
+  },
+  {
+    "id": "code_1",
+    "category": "code_analysis",
+    "prompt": "Apa output dari kode JavaScript ini? Jawab hanya outputnya tanpa penjelasan.\nfunction f(n){return n<=1?n:f(n-1)+f(n-2)}\nconsole.log(f(7))",
+    "answer_pattern": "\\b13\\b",
+    "weight": 15
+  },
+  {
+    "id": "instruction_1",
+    "category": "instruction_following",
+    "prompt": "Balas pesan ini dengan tepat 5 kata, tidak lebih tidak kurang. Semua huruf kecil. Tanpa tanda baca apapun.",
+    "answer_pattern": "^[a-z]+(\\s[a-z]+){4}$",
+    "weight": 10
+  },
+  {
+    "id": "logic_2",
+    "category": "logic",
+    "prompt": "Dalam turnamen catur round-robin 8 pemain, setiap pemain melawan semua pemain lain tepat sekali. Tidak ada seri. Berapa total kemenangan di seluruh turnamen? Jawab hanya angka.",
+    "answer_pattern": "\\b28\\b",
+    "weight": 10
+  }
+]
+
+## benchmark:scoring_config
+{
+  "min_pass_score": 50,
+  "categories": {
+    "reasoning": { "weight": 0.25 },
+    "logic": { "weight": 0.20 },
+    "math": { "weight": 0.10 },
+    "json_compliance": { "weight": 0.20 },
+    "code_analysis": { "weight": 0.15 },
+    "instruction_following": { "weight": 0.10 }
+  },
+  "latency_bonus_threshold_ms": 3000,
+  "latency_penalty_threshold_ms": 15000
+}
+
+## llm_routing:task_definitions
+{
+  "intent_analysis": { "primary": ["json_compliance", "reasoning"], "min_context": 4096 },
+  "chat_light": { "primary": ["instruction_following"], "min_context": 4096 },
+  "chat_heavy": { "primary": ["reasoning", "logic"], "min_context": 8192 },
+  "code_analysis": { "primary": ["code_analysis", "reasoning"], "min_context": 16384 },
+  "code_generation": { "primary": ["code_analysis", "json_compliance"], "min_context": 16384 },
+  "documentation": { "primary": ["instruction_following", "reasoning"], "min_context": 16384 },
+  "web_grounded": { "primary": ["reasoning", "instruction_following"], "min_context": 8192 },
+  "finance_response": { "primary": ["instruction_following", "json_compliance"], "min_context": 4096 },
+  "docsync_analysis": { "primary": ["json_compliance", "code_analysis"], "min_context": 16384 },
+  "benchmark_probe": { "primary": [], "min_context": 2048 }
+}
+
+## llm_routing:cost_rules
+{
+  "max_cost_per_million_prompt": "0",
+  "max_cost_per_million_completion": "0",
+  "allowed_providers": ["openrouter", "gemini", "groq"],
+  "openrouter_free_tag": ":free",
+  "enforce_zero_cost": true
+}
