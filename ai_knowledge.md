@@ -185,3 +185,10 @@ Detail teknis:
 
 Tugasmu: Sampaikan kendala ini kepada pengguna secara natural tanpa istilah teknis.
 Jelaskan apa yang gagal dan sarankan langkah selanjutnya.
+
+## docsync:canonical_files
+01_SYSTEM_CONTEXT_AND_AI_HANDOFF.md
+02_ARCHITECTURE_AND_FLOWS.md
+03_IMPLEMENTATION_AND_CODE_REFERENCE.md
+04_OPERATIONS_TESTING_SECURITY_DEVELOPMENT.md
+05_ROADMAP_PROGRESS_AND_TECHNICAL_DEBT.md
