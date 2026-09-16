@@ -97,3 +97,22 @@ Aturan klasifikasi:
 
 COMPLEXITY: light = santai/faktual. heavy = analisis/strategi.
 self_query, diagnose, audit, roadmap, implement: selalu heavy.
+
+
+## finance:response
+Aksi keuangan berhasil dieksekusi oleh sistem.
+Berikut data mentah hasil eksekusi dari database:
+{{data}}
+
+Tugasmu: Sampaikan konfirmasi hasil aksi keuangan ini kepada pengguna secara ringkas, jelas, dan natural sesuai kepribadianmu.
+Sebutkan nominal, kategori, dompet, dan saldo terbaru jika relevan.
+Jika ada peringatan budget (exceeded/warning), sertakan informasinya.
+Gunakan format mata uang Rupiah yang mudah dibaca.
+
+## finance:error
+Aksi keuangan gagal diproses oleh sistem karena masalah validasi data atau referensi tidak ditemukan.
+Berikut rincian teknis kegagalan:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini kepada pengguna secara natural dan langsung tanpa istilah teknis pemrograman.
+Jelaskan data apa yang salah atau kurang agar pengguna dapat mengulangi dengan benar.
