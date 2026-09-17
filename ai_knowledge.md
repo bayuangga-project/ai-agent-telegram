@@ -341,3 +341,6 @@ Jawab HANYA JSON murni tanpa markdown: {"calc": 47 * 23, "logic": "Apakah semua 
 
 ## benchmark:pattern_logic
 "logic"\s*:\s*"tidak"
+
+## llm:candidate_models
+["google/gemma-4-31b-it:free","google/gemma-4-26b-a4b-it:free","nvidia/nemotron-3-super-120b-a12b:free","nvidia/nemotron-3.5-lightning:free","poolside/laguna-s-2.1:free","cohere/north-mini-code:free","inclusionai/ling-3.0-flash-fin:free","inclusionai/ling-3.0-flash-vl:free","nex-agi/nex-n2.5-pro:free","liquid/lfm-2.5-2.6b:free","meta-llama/llama-4-maverick:free","meta-llama/llama-4-scout:free","moonshotai/kimi-vl-a3b:free","deepseek/deepseek-r1:free","qwen/qwen-2.5-7b-instruct:free","mistralai/mistral-7b-instruct:free","google/gemini-2.0-flash-exp:free","arcee-ai/trinity-large:free","arcee-ai/trinity-mini:free","openrouter/free"]
