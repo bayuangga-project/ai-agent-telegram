@@ -122,7 +122,44 @@ function test_TelegramMarkdownFallback() {
 }
 
 
+/**
+ * Audit timezone: membandingkan output Date mentah vs toWIB().
+ * Menentukan secara empiris apakah terjadi double offset WIB.
+ */
+function debug_TimezoneAudit() {
+  const ses = Session.getScriptTimeZone();
+  const now = new Date();
+  const toWIBNow = DateTimeUtils.toWIB(now);
 
+  const utcParsed = new Date("2025-01-01T00:00:00Z");
+  const utcParsedWIB = DateTimeUtils.toWIB(utcParsed);
+
+  const result = [
+    "=== HASIL AUDIT TIMEZONE ===",
+    "Script TimeZone : " + ses,
+    "",
+    "--- Skenario 1: new Date() (Waktu Server/Runtime) ---",
+    "1. now.toString()       : " + now.toString(),
+    "2. now.toISOString()    : " + now.toISOString(),
+    "3. toWIB(now).toString(): " + toWIBNow.toString(),
+    "4. toWIB(now).toISODate : " + toWIBNow.toISOString(),
+    "",
+    "--- Skenario 2: Parsing String ISO UTC (2025-01-01T00:00:00Z) ---",
+    "1. utc.toString()       : " + utcParsed.toString(),
+    "2. utc.toISOString()    : " + utcParsed.toISOString(),
+    "3. toWIB(utc).toString(): " + utcParsedWIB.toString(),
+    "4. toWIB(utc).toISODate : " + utcParsedWIB.toISOString(),
+    "=========================================="
+  ];
+
+  const output = result.join("\n");
+  Logger.log(output);
+  return output;
+}
+
+function triggerKnowledgeSync() {
+  KnowledgeSyncSpecialist.sync();
+}
 
 
 
