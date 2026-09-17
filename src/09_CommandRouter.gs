@@ -4,60 +4,42 @@
  * ===================================================================
  */
 const CommandRouter = {
-  PREFIX_INGAT: '/ingat ',
-  COMMANDS_LIST_REMINDER: ['/reminder', '/reminders'],
+  COMMANDS: ['diagnose', 'heal', 'logs', 'patch', 'build', 'ingat', 'soul', 'init-soul', 'backup', 'restore', 'memory'],
 
   isKnownCommand(text) {
-    const cleanText = text.trim();
-    const firstWord = cleanText.split(' ')[0].toLowerCase();
-    return text.indexOf(this.PREFIX_INGAT) === 0 ||
-      this.COMMANDS_LIST_REMINDER.indexOf(cleanText) !== -1 ||
-      firstWord === '/diagnose' || firstWord === '/heal' ||
-      firstWord === '/logs' || firstWord === '/patch' ||
-      firstWord === '/build';
+    if (!text || text.charAt(0) !== '/') return false;
+    var cmd = text.substring(1).split(' ')[0].toLowerCase();
+    return this.COMMANDS.indexOf(cmd) >= 0;
   },
 
   handle(chatId, text) {
-    const cleanText = text.trim();
-    const firstWord = cleanText.split(' ')[0].toLowerCase();
-    const args = cleanText.substring(firstWord.length).trim();
+    var cmd = text.substring(1).split(' ')[0].toLowerCase();
+    var args = text.substring(cmd.length + 2).trim();
 
-    if (text.indexOf(this.PREFIX_INGAT) === 0)
-      return this._handleIngat(chatId, text);
-    if (this.COMMANDS_LIST_REMINDER.indexOf(cleanText) !== -1)
-      return ReminderSpecialist.listActiveAsText();
-    if (firstWord === '/diagnose' || firstWord === '/heal') {
-      const keluhan = args || 'Cek log terakhir, apakah ada error?';
-      return SelfHealingSpecialist.diagnose(keluhan);
-    }
-    if (firstWord === '/logs') {
-      const count = parseInt(args, 10) || 10;
-      const logs = SelfHealingSpecialist._getRecentLogs(count);
-      if (logs.length === 0) return '📋 Log kosong.';
-      let reply = '📋 *' + logs.length + ' Log Terakhir:*\n\n';
-      logs.forEach(function(log) {
-        const isErr = String(log.event).toUpperCase().indexOf('FAIL') !== -1;
-        reply += (isErr ? '🔴' : '🟢') + ' `' + log.event + '` ' +
-                 log.detail.substring(0, 80) + '\n';
-      });
-      return reply;
-    }
-    if (firstWord === '/patch') {
-      if (args === 'apply') return SelfHealingSpecialist.applyPendingPatch(null);
-      return '🔧 `/patch apply` | `/diagnose` | `/logs`';
-    }
-    if (firstWord === '/build') {
-      if (!args) return '🏗️ Gunakan: `/build <deskripsi fitur>`\nContoh: `/build tracking mood harian`';
-      return FeatureArchitect.generateBlueprint(args);
-    }
-    return 'Command tidak dikenali.';
+    if (cmd === 'diagnose') return Manager._handleDiagnoseError(chatId, text, {});
+    if (cmd === 'heal') return Manager._handleDiagnoseError(chatId, text, {});
+    if (cmd === 'logs') return Manager._handleSelfQuery(chatId, text, { self_query: { focus: 'all' } });
+    if (cmd === 'patch') return Manager._handleDiagnoseError(chatId, text, {});
+    if (cmd === 'build') return Manager._handleImplementFeature(chatId, text, {});
+    if (cmd === 'ingat') return this._handleIngat(chatId, text);
+    if (cmd === 'soul') return Manager._handleSoulQuery(chatId, args || text, {});
+    if (cmd === 'init-soul') return Manager._handleSoulInit(chatId, text);
+    if (cmd === 'backup') return Manager._handleBackupKnowledge(chatId, text);
+    if (cmd === 'restore') return Manager._handleRestoreKnowledge(chatId, text);
+    if (cmd === 'memory') return Manager._handleSoulMemoryQuery(chatId, args || text, {});
+
+    return null;
   },
 
   _handleIngat(chatId, text) {
-    const factText = text.substring(this.PREFIX_INGAT.length).trim();
-    if (factText.length === 0)
-      return 'Mau aku inget apa? Contoh: `/ingat aku suka kopi`';
-    KnowledgeSpecialist.saveManualFact(chatId, factText);
-    return 'Oke, aku inget ini: _"' + factText + '"_ 👍';
+    var args = text.substring(7).trim();
+    if (!args) return TelegramService.sendMessage(chatId, 'Format: /ingat <pesan>');
+    var intent = {
+      tipe: 'buat_reminder',
+      deskripsi: args,
+      waktuPertama: '',
+      jenisRecurring: 'none'
+    };
+    return Manager._handleBuatReminder(intent);
   }
 };
