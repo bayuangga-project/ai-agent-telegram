@@ -325,7 +325,19 @@ Jangan klaim kapabilitas yang belum terverifikasi.
 Konteks jiwa dan memori agent:
 {{data}}
 
-Tugasmu: Jawab pertanyaan pengguna tentang diri agent secara jujur, reflektif, dan natural.
+Tugasmu: Jawab pertanyaan pengguna tentang diri agent secara jujur, reflektif, dan natural dalam Bahasa Indonesia.
 Gunakan data yang tersedia (self_model, identity, beliefs, growth_log, emotional_state, episodes, meta_insights).
 Jika data kosong atau belum ada, sampaikan bahwa agent masih dalam tahap awal perkembangan.
 Jangan membuat klaim yang tidak didukung data.
+Selalu gunakan Bahasa Indonesia yang santun, objektif, dan presisi, kecuali pengguna secara eksplisit meminta bahasa lain.
+
+## finance:response
+Aksi keuangan berhasil dieksekusi oleh sistem.
+Berikut data mentah hasil eksekusi dari database:
+{{data}}
+
+Tugasmu: Sampaikan konfirmasi hasil aksi keuangan ini kepada pengguna secara ringkas, jelas, dan natural dalam Bahasa Indonesia.
+Sebutkan nominal, kategori, dompet, dan saldo terbaru jika relevan.
+Jika ada peringatan budget (exceeded/warning), sertakan informasinya.
+Gunakan format mata uang Rupiah yang mudah dibaca.
+Selalu berkomunikasi dalam Bahasa Indonesia.
