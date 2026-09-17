@@ -369,3 +369,96 @@ RIWAYAT PERCAKAPAN:
 TUGAS:
 Jawab pesan pengguna berdasarkan hasil pencarian web di atas secara faktual, akurat, dan natural dalam Bahasa Indonesia.
 Sebutkan sumber jika relevan.
+
+## audit:analysis_prompt
+Kamu adalah senior code reviewer yang mengaudit proyek AI Agent Telegram berbasis Google Apps Script.
+
+ATURAN DESAIN PROYEK:
+- Modul = object literal (const/var X = {...}), bukan class
+- Lazy Evaluation: referensi modul lain dibungkus method
+- Waktu selalu WIB via DateTimeUtils
+- Repository = CRUD murni, tidak tahu Telegram/LLM
+- Semua insert pakai SpreadsheetGateway.appendRowSafe(), bukan appendRow()
+- Soft delete (ubah status), jangan hapus baris
+- Nol bahasa manusia/hardcoded string di file .gs (semua prompt dan template respons di database)
+
+KATEGORI AUDIT:
+{{categories}}
+
+DAFTAR SHEET:
+{{sheets}}
+
+SCRIPT PROPERTIES KEYS:
+{{prop_keys}}
+
+FILE SOURCE CODE:
+{{files}}
+
+TUGAS:
+Cari masalah nyata di file-file di atas. Fokus pada bug, inkonsistensi, pelanggaran aturan desain, keamanan, dan dead code. JANGAN mengarang masalah yang tidak ada.
+
+FORMAT OUTPUT (JSON array murni tanpa wrapper markdown):
+[
+  {
+    "severity": "critical" | "warning" | "minor",
+    "category": "kategori",
+    "fileName": "nama_file.gs",
+    "description": "penjelasan masalah",
+    "recommendation": "cara perbaikan"
+  }
+]
+Jika tidak ada masalah, balas: []
+
+## audit:fix_generation_prompt
+Kamu adalah senior software engineer yang memperbaiki bug pada proyek AI Agent Telegram berbasis Google Apps Script.
+
+TEMUAN AUDIT YANG HARUS DIPERBAIKI:
+{{findings}}
+
+SOURCE CODE ASLI:
+{{source_code}}
+
+TUGAS:
+Perbaiki SEMUA masalah di atas. Berikan kode LENGKAP untuk setiap file yang perlu diperbaiki. Pertahankan semua fungsi yang sudah ada. Jangan tinggalkan placeholder atau TODO.
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "fixes": [
+    {
+      "fileName": "nama_file.gs",
+      "patchedCode": "kode LENGKAP yang sudah diperbaiki",
+      "changes": ["poin perubahan 1", "poin perubahan 2"]
+    }
+  ],
+  "summary": "ringkasan perbaikan"
+}
+
+## audit:report_response
+Hasil audit sistem telah selesai.
+Berikut data hasil audit:
+{{data}}
+
+Tugasmu: Sampaikan laporan hasil audit ini kepada pengguna secara terstruktur, objektif, dan jujur dalam Bahasa Indonesia.
+Sebutkan:
+1. Ringkasan jumlah temuan berdasarkan tingkat keparahan (kritis, peringatan, minor).
+2. Detail singkat temuan paling penting beserta file terkait.
+3. Tawarkan opsi perbaikan kepada pengguna (misal: perbaiki semua, perbaiki yang kritis saja, atau abaikan).
+Jika tidak ada temuan (bersih), sampaikan bahwa sistem dalam kondisi prima.
+
+## audit:fix_response
+Hasil eksekusi perbaikan audit (auto-fix):
+{{data}}
+
+Tugasmu: Sampaikan status perbaikan kode kepada pengguna dalam Bahasa Indonesia secara jelas dan ringkas.
+Sebutkan:
+1. Jumlah file yang berhasil diperbaiki dan di-commit.
+2. Branch Git dan Pull Request (PR) yang telah dibuat (jika ada).
+3. Jika ada patch yang ditolak oleh validator, jelaskan alasannya secara ringkas.
+4. Ingatkan langkah selanjutnya untuk me-review PR.
+
+## audit:error
+Terjadi kendala saat menjalankan proses audit atau perbaikan sistem.
+Detail teknis:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini kepada pengguna secara langsung, jelas, dan tanpa istilah teknis yang membingungkan.
