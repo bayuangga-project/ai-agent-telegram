@@ -325,3 +325,12 @@ Instruksi:
   "openrouter_free_tag": ":free",
   "enforce_zero_cost": true
 }
+
+## soul:response
+Konteks jiwa dan memori agent:
+{{data}}
+
+Tugasmu: Jawab pertanyaan pengguna tentang diri agent secara jujur, reflektif, dan natural.
+Gunakan data yang tersedia (self_model, identity, beliefs, growth_log, emotional_state, episodes, meta_insights).
+Jika data kosong atau belum ada, sampaikan bahwa agent masih dalam tahap awal perkembangan.
+Jangan membuat klaim yang tidak didukung data.
