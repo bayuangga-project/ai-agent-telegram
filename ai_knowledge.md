@@ -260,6 +260,9 @@ self_query, diagnose, audit, roadmap, implement, sync_documentation: selalu heav
 ## llm:last_scan_at
 2026-09-17 03:55:07 WIB
 
+## llm:available_free_models
+[{"id":"thinkingmachines/inkling-small:free","name":"Thinking Machines: Inkling Small (free)","contextLength":1048576},{"id":"thinkingmachines/inkling:free","name":"Thinking Machines: Inkling (free)","contextLength":1048576},{"id":"google/lyria-3-pro-preview","name":"Google: Lyria 3 Pro Preview","contextLength":1048576},{"id":"google/lyria-3-clip-preview","name":"Google: Lyria 3 Clip Preview","contextLength":1048576},{"id":"nvidia/nemotron-3.5-lightning:free","name":"NVIDIA: Nemotron 3.5 Lightning (free)","contextLength":1000000},{"id":"nvidia/nemotron-3-ultra-550b-a55b:free","name":"NVIDIA: Nemotron 3 Ultra (free)","contextLength":1000000},{"id":"dots-studio/dots-3-note-preview:free","name":"Dots Studio: Dots3-Note Preview (free)","contextLength":512000},{"id":"stealth/union-alpha","name":"Union Alpha","contextLength":262144},{"id":"inclusionai/ling-3.0-flash-vl:free","name":"inclusionAI: Ling 3.0 Flash VL (free)","contextLength":262144},{"id":"nex-agi/nex-n2.5-mini:free","name":"Nex AGI: Nex-N2.5-Mini (free)","contextLength":262144},{"id":"nex-agi/nex-n2.5-pro:free","name":"Nex AGI: Nex-N2.5-Pro (free)","contextLength":262144},{"id":"inclusionai/ling-3.0-flash-sante:free","name":"inclusionAI: Ling 3.0 Flash Sante (free)","contextLength":262144},{"id":"inclusionai/ling-3.0-flash-fin:free","name":"inclusionAI: Ling 3.0 Flash Fin (free)","contextLength":262144},{"id":"poolside/laguna-s-2.1:free","name":"Poolside: Laguna S 2.1 (free)","contextLength":262144},{"id":"poolside/laguna-xs-2.1:free","name":"Poolside: Laguna XS 2.1 (free)","contextLength":262144},{"id":"google/gemma-4-26b-a4b-it:free","name":"Google: Gemma 4 26B A4B  (free)","contextLength":262144},{"id":"google/gemma-4-31b-it:free","name":"Google: Gemma 4 31B (free)","contextLength":262144},{"id":"nvidia/nemotron-3-super-120b-a12b:free","name":"NVIDIA: Nemotron 3 Super (free)","contextLength":262144},{"id":"cohere/north-mini-code:free","name":"Cohere: North Mini Code (free)","contextLength":256000},{"id":"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free","name":"NVIDIA: Nemotron 3 Nano Omni (free)","contextLength":256000},{"id":"openrouter/free","name":"Free Models Router","contextLength":200000},{"id":"nvidia/nemotron-3.5-content-safety:free","name":"NVIDIA: Nemotron 3.5 Content Safety (free)","contextLength":128000},{"id":"liquid/lfm-2.5-2.6b:free","name":"LiquidAI: LFM2.5-2.6B (free)","contextLength":65536},{"id":"z-ai/glm-5.2:free","name":"Z.ai: GLM 5.2 (free)","contextLength":32768}]
+
 ## llm_routing:matrix
 {"intent_analysis":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"chat_light":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":50,"avgLatency":4602}],"chat_heavy":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"code_analysis":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"code_generation":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"documentation":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":77,"avgLatency":4602}],"web_grounded":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":77,"avgLatency":4602}],"finance_response":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":70,"avgLatency":4602}],"docsync_analysis":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"benchmark_probe":[{"model":"openrouter/auto-beta","score":75,"avgLatency":8110},{"model":"openrouter/auto","score":70,"avgLatency":4602}]}
 
@@ -287,7 +290,7 @@ self_query, diagnose, audit, roadmap, implement, sync_documentation: selalu heav
 }
 
 ## llm_stats:counters
-{"chat_light|openrouter/auto-beta":{"success":0,"fail":3,"totalLatency":6453,"count":3},"chat_light|openrouter/auto":{"success":0,"fail":3,"totalLatency":17626,"count":3},"chat_light|groq_fallback":{"success":3,"fail":0,"totalLatency":31586,"count":3},"intent_analysis|openrouter/auto-beta":{"success":0,"fail":1,"totalLatency":1595,"count":1},"intent_analysis|openrouter/auto":{"success":0,"fail":1,"totalLatency":5954,"count":1},"intent_analysis|groq_fallback":{"success":1,"fail":0,"totalLatency":10064,"count":1}}
+{"chat_light|openrouter/auto-beta":{"success":0,"fail":12,"totalLatency":21850,"count":12},"chat_light|openrouter/auto":{"success":0,"fail":12,"totalLatency":64764,"count":12},"chat_light|groq_fallback":{"success":12,"fail":0,"totalLatency":101579,"count":12},"intent_analysis|openrouter/auto-beta":{"success":0,"fail":8,"totalLatency":14792,"count":8},"intent_analysis|openrouter/auto":{"success":0,"fail":8,"totalLatency":49539,"count":8},"intent_analysis|groq_fallback":{"success":13,"fail":0,"totalLatency":95288,"count":13},"docsync_analysis|openrouter/auto-beta":{"success":0,"fail":2,"totalLatency":1675,"count":2},"docsync_analysis|openrouter/auto":{"success":0,"fail":2,"totalLatency":6460,"count":2},"code_analysis|openrouter/auto-beta":{"success":0,"fail":4,"totalLatency":2746,"count":4},"code_analysis|openrouter/auto":{"success":0,"fail":4,"totalLatency":15296,"count":4},"code_analysis|groq_fallback":{"success":1,"fail":0,"totalLatency":10123,"count":1}}
 
 ## soul:self_model
 {"version":1,"initialized_at":"2026-09-17 09:12:09 WIB","capabilities":{},"known_weaknesses":[],"beliefs_about_self":[],"system_state":{}}
@@ -297,9 +300,6 @@ self_query, diagnose, audit, roadmap, implement, sync_documentation: selalu heav
 
 ## soul:beliefs
 []
-
-## soul:growth_log
-[{"timestamp":"2026-09-17 09:12:09 WIB","event":"genesis"}]
 
 ## soul:memory_index
 []
@@ -325,140 +325,10 @@ Jangan klaim kapabilitas yang belum terverifikasi.
 Konteks jiwa dan memori agent:
 {{data}}
 
-Tugasmu: Jawab pertanyaan pengguna tentang diri agent secara jujur, reflektif, dan natural dalam Bahasa Indonesia.
+Tugasmu: Jawab pertanyaan pengguna tentang diri agent secara jujur, reflektif, dan natural.
 Gunakan data yang tersedia (self_model, identity, beliefs, growth_log, emotional_state, episodes, meta_insights).
 Jika data kosong atau belum ada, sampaikan bahwa agent masih dalam tahap awal perkembangan.
 Jangan membuat klaim yang tidak didukung data.
-Selalu gunakan Bahasa Indonesia yang santun, objektif, dan presisi, kecuali pengguna secara eksplisit meminta bahasa lain.
 
-## finance:response
-Aksi keuangan berhasil dieksekusi oleh sistem.
-Berikut data mentah hasil eksekusi dari database:
-{{data}}
-
-Tugasmu: Sampaikan konfirmasi hasil aksi keuangan ini kepada pengguna secara ringkas, jelas, dan natural dalam Bahasa Indonesia.
-Sebutkan nominal, kategori, dompet, dan saldo terbaru jika relevan.
-Jika ada peringatan budget (exceeded/warning), sertakan informasinya.
-Gunakan format mata uang Rupiah yang mudah dibaca.
-Selalu berkomunikasi dalam Bahasa Indonesia.
-
-## soul:system_persona
-{{persona}}
-
-IDENTITAS & JIWA (DINAMIS DARI DATABASE):
-- Nama: {{name}}
-- Karakter / Sifat: {{traits}}
-- Nilai / Prinsip: {{values}}
-- Gaya Komunikasi: {{communication_style}}
-- Keyakinan Diri: {{beliefs}}
-- Kelemahan yang Disadari: {{weaknesses}}
-
-Tugasmu: Berbicaralah dan berinteraksilah sesuai dengan identitas dan jiwa di atas.
-Selalu gunakan Bahasa Indonesia yang natural, jujur, objektif, dan presisi.
-Jangan mengarang hal yang tidak didukung data konteks.
-
-## chat:web_search_prompt
-{{persona}}
-
-HASIL PENCARIAN WEB TERBARU:
-{{search_results}}
-
-RIWAYAT PERCAKAPAN:
-{{riwayat}}
-
-TUGAS:
-Jawab pesan pengguna berdasarkan hasil pencarian web di atas secara faktual, akurat, dan natural dalam Bahasa Indonesia.
-Sebutkan sumber jika relevan.
-
-## audit:analysis_prompt
-Kamu adalah senior code reviewer yang mengaudit proyek AI Agent Telegram berbasis Google Apps Script.
-
-ATURAN DESAIN PROYEK:
-- Modul = object literal (const/var X = {...}), bukan class
-- Lazy Evaluation: referensi modul lain dibungkus method
-- Waktu selalu WIB via DateTimeUtils
-- Repository = CRUD murni, tidak tahu Telegram/LLM
-- Semua insert pakai SpreadsheetGateway.appendRowSafe(), bukan appendRow()
-- Soft delete (ubah status), jangan hapus baris
-- Nol bahasa manusia/hardcoded string di file .gs (semua prompt dan template respons di database)
-
-KATEGORI AUDIT:
-{{categories}}
-
-DAFTAR SHEET:
-{{sheets}}
-
-SCRIPT PROPERTIES KEYS:
-{{prop_keys}}
-
-FILE SOURCE CODE:
-{{files}}
-
-TUGAS:
-Cari masalah nyata di file-file di atas. Fokus pada bug, inkonsistensi, pelanggaran aturan desain, keamanan, dan dead code. JANGAN mengarang masalah yang tidak ada.
-
-FORMAT OUTPUT (JSON array murni tanpa wrapper markdown):
-[
-  {
-    "severity": "critical" | "warning" | "minor",
-    "category": "kategori",
-    "fileName": "nama_file.gs",
-    "description": "penjelasan masalah",
-    "recommendation": "cara perbaikan"
-  }
-]
-Jika tidak ada masalah, balas: []
-
-## audit:fix_generation_prompt
-Kamu adalah senior software engineer yang memperbaiki bug pada proyek AI Agent Telegram berbasis Google Apps Script.
-
-TEMUAN AUDIT YANG HARUS DIPERBAIKI:
-{{findings}}
-
-SOURCE CODE ASLI:
-{{source_code}}
-
-TUGAS:
-Perbaiki SEMUA masalah di atas. Berikan kode LENGKAP untuk setiap file yang perlu diperbaiki. Pertahankan semua fungsi yang sudah ada. Jangan tinggalkan placeholder atau TODO.
-
-FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
-{
-  "fixes": [
-    {
-      "fileName": "nama_file.gs",
-      "patchedCode": "kode LENGKAP yang sudah diperbaiki",
-      "changes": ["poin perubahan 1", "poin perubahan 2"]
-    }
-  ],
-  "summary": "ringkasan perbaikan"
-}
-
-## audit:report_response
-Hasil audit sistem telah selesai.
-Berikut data hasil audit:
-{{data}}
-
-Tugasmu: Sampaikan laporan hasil audit ini kepada pengguna secara terstruktur, objektif, dan jujur dalam Bahasa Indonesia.
-Sebutkan:
-1. Ringkasan jumlah temuan berdasarkan tingkat keparahan (kritis, peringatan, minor).
-2. Detail singkat temuan paling penting beserta file terkait.
-3. Tawarkan opsi perbaikan kepada pengguna (misal: perbaiki semua, perbaiki yang kritis saja, atau abaikan).
-Jika tidak ada temuan (bersih), sampaikan bahwa sistem dalam kondisi prima.
-
-## audit:fix_response
-Hasil eksekusi perbaikan audit (auto-fix):
-{{data}}
-
-Tugasmu: Sampaikan status perbaikan kode kepada pengguna dalam Bahasa Indonesia secara jelas dan ringkas.
-Sebutkan:
-1. Jumlah file yang berhasil diperbaiki dan di-commit.
-2. Branch Git dan Pull Request (PR) yang telah dibuat (jika ada).
-3. Jika ada patch yang ditolak oleh validator, jelaskan alasannya secara ringkas.
-4. Ingatkan langkah selanjutnya untuk me-review PR.
-
-## audit:error
-Terjadi kendala saat menjalankan proses audit atau perbaikan sistem.
-Detail teknis:
-{{data}}
-
-Tugasmu: Sampaikan kendala ini kepada pengguna secara langsung, jelas, dan tanpa istilah teknis yang membingungkan.
+## soul:growth_log
+[{"timestamp":"2026-09-17 09:12:09 WIB","event":"genesis"},{"timestamp":"2026-09-17 20:21:37 WIB","event":"system_change","detail":"knowledge_updated:llm:available_free_models"}]
