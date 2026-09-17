@@ -1,5 +1,157 @@
 # AI Agent Knowledge Base
 
+## benchmark:test_suite
+[
+  {
+    "id": "crt_1",
+    "category": "reasoning",
+    "prompt": "Sebuah tongkat dan sebuah bola bersama-sama berharga Rp1.100. Tongkat itu Rp1.000 lebih mahal dari bola. Berapa harga bola dalam Rupiah? Jawab hanya angka tanpa titik atau koma.",
+    "answer_pattern": "\\b50\\b",
+    "weight": 15
+  },
+  {
+    "id": "crt_2",
+    "category": "reasoning",
+    "prompt": "Jika 5 mesin membutuhkan 5 menit untuk membuat 5 widget, berapa menit yang dibutuhkan 100 mesin untuk membuat 100 widget? Jawab hanya angka.",
+    "answer_pattern": "\\b5\\b",
+    "weight": 15
+  },
+  {
+    "id": "logic_1",
+    "category": "logic",
+    "prompt": "Jika semua A adalah B, dan beberapa B adalah C, apakah pasti semua A adalah C? Jawab hanya 'ya' atau 'tidak'.",
+    "answer_pattern": "tidak",
+    "weight": 10
+  },
+  {
+    "id": "math_1",
+    "category": "math",
+    "prompt": "Berapa hasil dari 8 dibagi 2 dikali (2 tambah 2)? Jawab hanya angka.",
+    "answer_pattern": "\\b16\\b",
+    "weight": 10
+  },
+  {
+    "id": "json_1",
+    "category": "json_compliance",
+    "prompt": "Balas dengan JSON valid yang berisi tepat 2 key: 'hasil' dengan nilai 47 dikali 23, dan 'genap' dengan nilai boolean apakah hasilnya genap. Tidak boleh ada teks lain selain JSON.",
+    "answer_pattern": "\"hasil\"\\s*:\\s*1081.*\"genap\"\\s*:\\s*false",
+    "weight": 15
+  },
+  {
+    "id": "code_1",
+    "category": "code_analysis",
+    "prompt": "Apa output dari kode JavaScript ini? Jawab hanya outputnya tanpa penjelasan.\nfunction f(n){return n<=1?n:f(n-1)+f(n-2)}\nconsole.log(f(7))",
+    "answer_pattern": "\\b13\\b",
+    "weight": 15
+  },
+  {
+    "id": "instruction_1",
+    "category": "instruction_following",
+    "prompt": "Balas pesan ini dengan tepat 5 kata, tidak lebih tidak kurang. Semua huruf kecil. Tanpa tanda baca apapun.",
+    "answer_pattern": "^[a-z]+(\\s[a-z]+){4}$",
+    "weight": 10
+  },
+  {
+    "id": "logic_2",
+    "category": "logic",
+    "prompt": "Dalam turnamen catur round-robin 8 pemain, setiap pemain melawan semua pemain lain tepat sekali. Tidak ada seri. Berapa total kemenangan di seluruh turnamen? Jawab hanya angka.",
+    "answer_pattern": "\\b28\\b",
+    "weight": 10
+  }
+]
+
+## benchmark:scoring_config
+{
+  "min_pass_score": 50,
+  "categories": {
+    "reasoning": { "weight": 0.25 },
+    "logic": { "weight": 0.20 },
+    "math": { "weight": 0.10 },
+    "json_compliance": { "weight": 0.20 },
+    "code_analysis": { "weight": 0.15 },
+    "instruction_following": { "weight": 0.10 }
+  },
+  "latency_bonus_threshold_ms": 3000,
+  "latency_penalty_threshold_ms": 15000
+}
+
+## docsync:response
+Proses sinkronisasi dokumentasi telah selesai.
+Berikut data hasil eksekusi:
+{{data}}
+
+Tugasmu: Sampaikan hasil sinkronisasi ini kepada pengguna secara ringkas dan natural.
+Sebutkan file mana saja yang diupdate dan mengapa, serta file mana yang tidak berubah.
+Jika tidak ada perubahan, sampaikan bahwa dokumentasi sudah sinkron.
+
+## docsync:error
+Proses sinkronisasi dokumentasi mengalami kegagalan.
+Detail teknis:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini kepada pengguna secara natural tanpa istilah teknis.
+Jelaskan apa yang gagal dan sarankan langkah selanjutnya.
+
+## docsync:canonical_files
+01_SYSTEM_CONTEXT_AND_AI_HANDOFF.md
+02_ARCHITECTURE_AND_FLOWS.md
+03_IMPLEMENTATION_AND_CODE_REFERENCE.md
+04_OPERATIONS_TESTING_SECURITY_DEVELOPMENT.md
+05_ROADMAP_PROGRESS_AND_TECHNICAL_DEBT.md
+
+## docsync:analysis_prompt
+Kamu adalah analis dokumentasi teknis. Tugasmu membandingkan source code aplikasi dengan file dokumentasi markdown yang ada, lalu mengidentifikasi ketidaksinkronan.
+
+DAFTAR FILE DOKUMENTASI KANONIK (hanya file-file ini yang boleh diupdate):
+{{canonical_files}}
+
+ATURAN KERAS:
+- HANYA update file yang ada di daftar kanonik di atas.
+- JANGAN buat file baru.
+- JANGAN update file di luar daftar kanonik.
+- Jika semua file sudah sinkron, kembalikan updates kosong.
+
+Berikut adalah metadata source code (daftar file, method, dan LOC):
+{{source_metadata}}
+
+Berikut adalah konten dokumentasi saat ini:
+{{current_docs}}
+
+Instruksi:
+1. Identifikasi file .md kanonik mana yang tidak lagi akurat dibandingkan source code.
+2. Untuk setiap file yang perlu diupdate, hasilkan versi baru yang lengkap dan akurat.
+3. Pertahankan struktur dan format markdown yang sudah ada.
+4. Kembalikan HANYA JSON murni dengan format:
+{
+  "updates": [
+    {
+      "file": "nama_file.md",
+      "reason": "alasan perubahan singkat",
+      "content": "konten lengkap file .md yang baru"
+    }
+  ],
+  "unchanged": ["file_yang_tidak_berubah.md"],
+  "summary": "ringkasan singkat perubahan"
+}
+
+## finance:response
+Aksi keuangan berhasil dieksekusi oleh sistem.
+Berikut data mentah hasil eksekusi dari database:
+{{data}}
+
+Tugasmu: Sampaikan konfirmasi hasil aksi keuangan ini kepada pengguna secara ringkas, jelas, dan natural sesuai kepribadianmu.
+Sebutkan nominal, kategori, dompet, dan saldo terbaru jika relevan.
+Jika ada peringatan budget (exceeded/warning), sertakan informasinya.
+Gunakan format mata uang Rupiah yang mudah dibaca.
+
+## finance:error
+Aksi keuangan gagal diproses oleh sistem karena masalah validasi data atau referensi tidak ditemukan.
+Berikut rincian teknis kegagalan:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini kepada pengguna secara natural dan langsung tanpa istilah teknis pemrograman.
+Jelaskan data apa yang salah atau kurang agar pengguna dapat mengulangi dengan benar.
+
 ## intent:persona
 Kamu adalah AI Agent dengan kepribadian mandiri, objektif, dan presisi. Bertindaklah berdasarkan fakta yang tersimpan di database.
 
@@ -83,49 +235,6 @@ Aturan klasifikasi:
 - ringkasan_keuangan: user minta rekap/laporan keuangan periode tertentu
 - atur_budget: user menetapkan batas anggaran per kategori
 - edit_transaksi: user ingin ubah atau hapus transaksi terakhir
-- factsBaru: hanya eksplisit, jangan ulangi fakta lama
-- profileUpdates: info personal baru
-- butuhInfoTerkini: hanya data real-time
-- diagnose_error: bot error/macet
-- update_docs: update dokumentasi
-- audit_code: review/audit kode
-- fix_audit: perbaiki hasil audit
-- check_changes: perubahan kode/sync docs
-- roadmap_query: roadmap/visi/ide baru
-- implement_feature: konfirmasi implementasi setelah blueprint
-- self_query: user bertanya tentang dirimu, kemampuanmu, kelemahanmu, cara kerjamu, atau minta introspeksi. focus "all" untuk review lengkap, atau dimensi spesifik.
-
-COMPLEXITY: light = santai/faktual. heavy = analisis/strategi.
-self_query, diagnose, audit, roadmap, implement: selalu heavy.
-
-
-## finance:response
-Aksi keuangan berhasil dieksekusi oleh sistem.
-Berikut data mentah hasil eksekusi dari database:
-{{data}}
-
-Tugasmu: Sampaikan konfirmasi hasil aksi keuangan ini kepada pengguna secara ringkas, jelas, dan natural sesuai kepribadianmu.
-Sebutkan nominal, kategori, dompet, dan saldo terbaru jika relevan.
-Jika ada peringatan budget (exceeded/warning), sertakan informasinya.
-Gunakan format mata uang Rupiah yang mudah dibaca.
-
-## finance:error
-Aksi keuangan gagal diproses oleh sistem karena masalah validasi data atau referensi tidak ditemukan.
-Berikut rincian teknis kegagalan:
-{{data}}
-
-Tugasmu: Sampaikan kendala ini kepada pengguna secara natural dan langsung tanpa istilah teknis pemrograman.
-Jelaskan data apa yang salah atau kurang agar pengguna dapat mengulangi dengan benar.
-
-## intent:rules
-Aturan klasifikasi:
-- ack_reminder: ada reminder aktif + pesan seperti respon/ack
-- buat_reminder: minta pengingat baru. "besok" = hari ini +1. Default 09:00
-- catat_keuangan: user mencatat pengeluaran/pemasukan (beli, bayar, jajan, gaji, transfer, dll). Normalisasi nominal: "50rb"=50000, "1.5jt"=1500000. Jika wallet tidak disebut, kosongkan field wallet.
-- tanya_saldo: user bertanya sisa saldo atau cek dompet
-- ringkasan_keuangan: user minta rekap/laporan keuangan periode tertentu
-- atur_budget: user menetapkan batas anggaran per kategori
-- edit_transaksi: user ingin ubah atau hapus transaksi terakhir
 - sync_documentation: user meminta update/sinkronisasi/perbaikan dokumentasi, menyelaraskan doc dengan kode, atau menanyakan apakah doc sudah up-to-date. Contoh: "update dokumentasi", "sinkronkan doc", "cek apakah doc sudah sesuai kode", "perbaiki readme".
 - factsBaru: hanya eksplisit, jangan ulangi fakta lama
 - profileUpdates: info personal baru
@@ -142,166 +251,17 @@ Aturan klasifikasi:
 COMPLEXITY: light = santai/faktual. heavy = analisis/strategi.
 self_query, diagnose, audit, roadmap, implement, sync_documentation: selalu heavy.
 
-## docsync:analysis_prompt
-Kamu adalah analis dokumentasi teknis. Tugasmu membandingkan source code aplikasi dengan file dokumentasi markdown yang ada, lalu mengidentifikasi ketidaksinkronan.
+## llm:benchmark_results
+{"openrouter/auto-beta":{"modelId":"openrouter/auto-beta","totalScore":100,"avgLatencyMs":8110,"scores":{"crt_1":{"category":"reasoning","passed":true,"latency":6152,"weight":15},"crt_2":{"category":"reasoning","passed":true,"latency":10833,"weight":15},"logic_1":{"category":"logic","passed":true,"latency":4761,"weight":10},"math_1":{"category":"math","passed":true,"latency":4145,"weight":10},"json_1":{"category":"json_compliance","passed":true,"latency":5180,"weight":15},"code_1":{"category":"code_analysis","passed":true,"latency":16439,"weight":15},"instruction_1":{"category":"instruction_following","passed":true,"latency":13805,"weight":10},"logic_2":{"category":"logic","passed":true,"latency":3568,"weight":10}},"testedAt":"2026-09-16 23:31:13 WIB"},"openrouter/pareto-code":{"modelId":"openrouter/pareto-code","totalScore":0,"avgLatencyMs":-1,"scores":{"crt_1":{"category":"reasoning","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"crt_2":{"category":"reasoning","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"logic_1":{"category":"logic","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"math_1":{"category":"math","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"json_1":{"category":"json_compliance","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"code_1":{"category":"code_analysis","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"instruction_1":{"category":"instruction_following","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"},"logic_2":{"category":"logic","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 402: {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 409. To increase, visit https://openrouter.ai/settings/credits and u"}},"testedAt":"2026-09-16 23:31:14 WIB"},"openrouter/auto":{"modelId":"openrouter/auto","totalScore":90,"avgLatencyMs":4602,"scores":{"crt_1":{"category":"reasoning","passed":true,"latency":5190,"weight":15},"crt_2":{"category":"reasoning","passed":true,"latency":2784,"weight":15},"logic_1":{"category":"logic","passed":true,"latency":3209,"weight":10},"math_1":{"category":"math","passed":true,"latency":8282,"weight":10},"json_1":{"category":"json_compliance","passed":true,"latency":3691,"weight":15},"code_1":{"category":"code_analysis","passed":true,"latency":5010,"weight":15},"instruction_1":{"category":"instruction_following","passed":false,"latency":4537,"weight":10},"logic_2":{"category":"logic","passed":true,"latency":4111,"weight":10}},"testedAt":"2026-09-16 23:31:51 WIB"},"thinkingmachines/inkling-small:free":{"modelId":"thinkingmachines/inkling-small:free","totalScore":0,"avgLatencyMs":-1,"scores":{"crt_1":{"category":"reasoning","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"crt_2":{"category":"reasoning","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"logic_1":{"category":"logic","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"math_1":{"category":"math","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"json_1":{"category":"json_compliance","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"code_1":{"category":"code_analysis","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"instruction_1":{"category":"instruction_following","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"},"logic_2":{"category":"logic","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":40"}},"testedAt":"2026-09-16 23:31:52 WIB"},"thinkingmachines/inkling:free":{"modelId":"thinkingmachines/inkling:free","totalScore":0,"avgLatencyMs":-1,"scores":{"crt_1":{"category":"reasoning","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"crt_2":{"category":"reasoning","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"logic_1":{"category":"logic","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"math_1":{"category":"math","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"json_1":{"category":"json_compliance","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"code_1":{"category":"code_analysis","passed":false,"latency":-1,"weight":15,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"instruction_1":{"category":"instruction_following","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"},"logic_2":{"category":"logic","passed":false,"latency":-1,"weight":10,"error":"OpenRouter Error HTTP 403: {\"error\":{\"message\":\"thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps\",\"code\":403,\"met"}},"testedAt":"2026-09-16 23:31:52 WIB"}}
 
-Berikut adalah metadata source code (daftar file, method, dan LOC):
-{{source_metadata}}
+## llm:available_models
+[{"id":"openrouter/auto-beta","name":"Auto Router (Beta)","contextLength":2000000,"promptCost":"-1","completionCost":"-1"},{"id":"openrouter/pareto-code","name":"Pareto Code Router","contextLength":2000000,"promptCost":"-1","completionCost":"-1"},{"id":"openrouter/auto","name":"Auto Router","contextLength":2000000,"promptCost":"-1","completionCost":"-1"},{"id":"thinkingmachines/inkling-small:free","name":"Thinking Machines: Inkling Small (free)","contextLength":1048576,"promptCost":"0","completionCost":"0"},{"id":"thinkingmachines/inkling:free","name":"Thinking Machines: Inkling (free)","contextLength":1048576,"promptCost":"0","completionCost":"0"},{"id":"google/lyria-3-pro-preview","name":"Google: Lyria 3 Pro Preview","contextLength":1048576,"promptCost":"0","completionCost":"0"},{"id":"google/lyria-3-clip-preview","name":"Google: Lyria 3 Clip Preview","contextLength":1048576,"promptCost":"0","completionCost":"0"},{"id":"nvidia/nemotron-3.5-lightning:free","name":"NVIDIA: Nemotron 3.5 Lightning (free)","contextLength":1000000,"promptCost":"0","completionCost":"0"},{"id":"openrouter/fusion","name":"OpenRouter: Fusion","contextLength":1000000,"promptCost":"-1","completionCost":"-1"},{"id":"nvidia/nemotron-3-ultra-550b-a55b:free","name":"NVIDIA: Nemotron 3 Ultra (free)","contextLength":1000000,"promptCost":"0","completionCost":"0"},{"id":"dots-studio/dots-3-note-preview:free","name":"Dots Studio: Dots3-Note Preview (free)","contextLength":512000,"promptCost":"0","completionCost":"0"},{"id":"stealth/union-alpha","name":"Union Alpha","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"inclusionai/ling-3.0-flash-vl:free","name":"inclusionAI: Ling 3.0 Flash VL (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"nex-agi/nex-n2.5-mini:free","name":"Nex AGI: Nex-N2.5-Mini (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"nex-agi/nex-n2.5-pro:free","name":"Nex AGI: Nex-N2.5-Pro (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"inclusionai/ling-3.0-flash-sante:free","name":"inclusionAI: Ling 3.0 Flash Sante (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"inclusionai/ling-3.0-flash-fin:free","name":"inclusionAI: Ling 3.0 Flash Fin (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"poolside/laguna-s-2.1:free","name":"Poolside: Laguna S 2.1 (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"poolside/laguna-xs-2.1:free","name":"Poolside: Laguna XS 2.1 (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"google/gemma-4-26b-a4b-it:free","name":"Google: Gemma 4 26B A4B  (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"google/gemma-4-31b-it:free","name":"Google: Gemma 4 31B (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"nvidia/nemotron-3-super-120b-a12b:free","name":"NVIDIA: Nemotron 3 Super (free)","contextLength":262144,"promptCost":"0","completionCost":"0"},{"id":"cohere/north-mini-code:free","name":"Cohere: North Mini Code (free)","contextLength":256000,"promptCost":"0","completionCost":"0"},{"id":"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free","name":"NVIDIA: Nemotron 3 Nano Omni (free)","contextLength":256000,"promptCost":"0","completionCost":"0"},{"id":"openrouter/free","name":"Free Models Router","contextLength":200000,"promptCost":"0","completionCost":"0"},{"id":"nvidia/nemotron-3.5-content-safety:free","name":"NVIDIA: Nemotron 3.5 Content Safety (free)","contextLength":128000,"promptCost":"0","completionCost":"0"},{"id":"openrouter/bodybuilder","name":"Body Builder (beta)","contextLength":128000,"promptCost":"-1","completionCost":"-1"},{"id":"liquid/lfm-2.5-2.6b:free","name":"LiquidAI: LFM2.5-2.6B (free)","contextLength":65536,"promptCost":"0","completionCost":"0"},{"id":"z-ai/glm-5.2:free","name":"Z.ai: GLM 5.2 (free)","contextLength":32768,"promptCost":"0","completionCost":"0"}]
 
-Berikut adalah konten dokumentasi saat ini:
-{{current_docs}}
+## llm:last_scan_at
+2026-09-17 03:55:07 WIB
 
-Instruksi:
-1. Identifikasi file .md mana yang tidak lagi akurat dibandingkan source code.
-2. Untuk setiap file yang perlu diupdate, hasilkan versi baru yang lengkap dan akurat.
-3. Pertahankan struktur dan format markdown yang sudah ada.
-4. Jangan mengubah file .md yang masih akurat.
-5. Kembalikan HANYA JSON murni dengan format:
-{
-  "updates": [
-    {
-      "file": "nama_file.md",
-      "reason": "alasan perubahan singkat",
-      "content": "konten lengkap file .md yang baru"
-    }
-  ],
-  "unchanged": ["file_yang_tidak_berubah.md"],
-  "summary": "ringkasan singkat perubahan"
-}
-
-## docsync:response
-Proses sinkronisasi dokumentasi telah selesai.
-Berikut data hasil eksekusi:
-{{data}}
-
-Tugasmu: Sampaikan hasil sinkronisasi ini kepada pengguna secara ringkas dan natural.
-Sebutkan file mana saja yang diupdate dan mengapa, serta file mana yang tidak berubah.
-Jika tidak ada perubahan, sampaikan bahwa dokumentasi sudah sinkron.
-
-## docsync:error
-Proses sinkronisasi dokumentasi mengalami kegagalan.
-Detail teknis:
-{{data}}
-
-Tugasmu: Sampaikan kendala ini kepada pengguna secara natural tanpa istilah teknis.
-Jelaskan apa yang gagal dan sarankan langkah selanjutnya.
-
-## docsync:canonical_files
-01_SYSTEM_CONTEXT_AND_AI_HANDOFF.md
-02_ARCHITECTURE_AND_FLOWS.md
-03_IMPLEMENTATION_AND_CODE_REFERENCE.md
-04_OPERATIONS_TESTING_SECURITY_DEVELOPMENT.md
-05_ROADMAP_PROGRESS_AND_TECHNICAL_DEBT.md
-
-## docsync:analysis_prompt
-Kamu adalah analis dokumentasi teknis. Tugasmu membandingkan source code aplikasi dengan file dokumentasi markdown yang ada, lalu mengidentifikasi ketidaksinkronan.
-
-DAFTAR FILE DOKUMENTASI KANONIK (hanya file-file ini yang boleh diupdate):
-{{canonical_files}}
-
-ATURAN KERAS:
-- HANYA update file yang ada di daftar kanonik di atas.
-- JANGAN buat file baru.
-- JANGAN update file di luar daftar kanonik.
-- Jika semua file sudah sinkron, kembalikan updates kosong.
-
-Berikut adalah metadata source code (daftar file, method, dan LOC):
-{{source_metadata}}
-
-Berikut adalah konten dokumentasi saat ini:
-{{current_docs}}
-
-Instruksi:
-1. Identifikasi file .md kanonik mana yang tidak lagi akurat dibandingkan source code.
-2. Untuk setiap file yang perlu diupdate, hasilkan versi baru yang lengkap dan akurat.
-3. Pertahankan struktur dan format markdown yang sudah ada.
-4. Kembalikan HANYA JSON murni dengan format:
-{
-  "updates": [
-    {
-      "file": "nama_file.md",
-      "reason": "alasan perubahan singkat",
-      "content": "konten lengkap file .md yang baru"
-    }
-  ],
-  "unchanged": ["file_yang_tidak_berubah.md"],
-  "summary": "ringkasan singkat perubahan"
-}
-
-## benchmark:test_suite
-[
-  {
-    "id": "crt_1",
-    "category": "reasoning",
-    "prompt": "Sebuah tongkat dan sebuah bola bersama-sama berharga Rp1.100. Tongkat itu Rp1.000 lebih mahal dari bola. Berapa harga bola dalam Rupiah? Jawab hanya angka tanpa titik atau koma.",
-    "answer_pattern": "\\b50\\b",
-    "weight": 15
-  },
-  {
-    "id": "crt_2",
-    "category": "reasoning",
-    "prompt": "Jika 5 mesin membutuhkan 5 menit untuk membuat 5 widget, berapa menit yang dibutuhkan 100 mesin untuk membuat 100 widget? Jawab hanya angka.",
-    "answer_pattern": "\\b5\\b",
-    "weight": 15
-  },
-  {
-    "id": "logic_1",
-    "category": "logic",
-    "prompt": "Jika semua A adalah B, dan beberapa B adalah C, apakah pasti semua A adalah C? Jawab hanya 'ya' atau 'tidak'.",
-    "answer_pattern": "tidak",
-    "weight": 10
-  },
-  {
-    "id": "math_1",
-    "category": "math",
-    "prompt": "Berapa hasil dari 8 dibagi 2 dikali (2 tambah 2)? Jawab hanya angka.",
-    "answer_pattern": "\\b16\\b",
-    "weight": 10
-  },
-  {
-    "id": "json_1",
-    "category": "json_compliance",
-    "prompt": "Balas dengan JSON valid yang berisi tepat 2 key: 'hasil' dengan nilai 47 dikali 23, dan 'genap' dengan nilai boolean apakah hasilnya genap. Tidak boleh ada teks lain selain JSON.",
-    "answer_pattern": "\"hasil\"\\s*:\\s*1081.*\"genap\"\\s*:\\s*false",
-    "weight": 15
-  },
-  {
-    "id": "code_1",
-    "category": "code_analysis",
-    "prompt": "Apa output dari kode JavaScript ini? Jawab hanya outputnya tanpa penjelasan.\nfunction f(n){return n<=1?n:f(n-1)+f(n-2)}\nconsole.log(f(7))",
-    "answer_pattern": "\\b13\\b",
-    "weight": 15
-  },
-  {
-    "id": "instruction_1",
-    "category": "instruction_following",
-    "prompt": "Balas pesan ini dengan tepat 5 kata, tidak lebih tidak kurang. Semua huruf kecil. Tanpa tanda baca apapun.",
-    "answer_pattern": "^[a-z]+(\\s[a-z]+){4}$",
-    "weight": 10
-  },
-  {
-    "id": "logic_2",
-    "category": "logic",
-    "prompt": "Dalam turnamen catur round-robin 8 pemain, setiap pemain melawan semua pemain lain tepat sekali. Tidak ada seri. Berapa total kemenangan di seluruh turnamen? Jawab hanya angka.",
-    "answer_pattern": "\\b28\\b",
-    "weight": 10
-  }
-]
-
-## benchmark:scoring_config
-{
-  "min_pass_score": 50,
-  "categories": {
-    "reasoning": { "weight": 0.25 },
-    "logic": { "weight": 0.20 },
-    "math": { "weight": 0.10 },
-    "json_compliance": { "weight": 0.20 },
-    "code_analysis": { "weight": 0.15 },
-    "instruction_following": { "weight": 0.10 }
-  },
-  "latency_bonus_threshold_ms": 3000,
-  "latency_penalty_threshold_ms": 15000
-}
+## llm_routing:matrix
+{"intent_analysis":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"chat_light":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":50,"avgLatency":4602}],"chat_heavy":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"code_analysis":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"code_generation":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"documentation":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":77,"avgLatency":4602}],"web_grounded":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":77,"avgLatency":4602}],"finance_response":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":70,"avgLatency":4602}],"docsync_analysis":[{"model":"openrouter/auto-beta","score":95,"avgLatency":8110},{"model":"openrouter/auto","score":90,"avgLatency":4602}],"benchmark_probe":[{"model":"openrouter/auto-beta","score":75,"avgLatency":8110},{"model":"openrouter/auto","score":70,"avgLatency":4602}]}
 
 ## llm_routing:task_definitions
 {
@@ -325,6 +285,41 @@ Instruksi:
   "openrouter_free_tag": ":free",
   "enforce_zero_cost": true
 }
+
+## llm_stats:counters
+{"chat_light|openrouter/auto-beta":{"success":0,"fail":3,"totalLatency":6453,"count":3},"chat_light|openrouter/auto":{"success":0,"fail":3,"totalLatency":17626,"count":3},"chat_light|groq_fallback":{"success":3,"fail":0,"totalLatency":31586,"count":3},"intent_analysis|openrouter/auto-beta":{"success":0,"fail":1,"totalLatency":1595,"count":1},"intent_analysis|openrouter/auto":{"success":0,"fail":1,"totalLatency":5954,"count":1},"intent_analysis|groq_fallback":{"success":1,"fail":0,"totalLatency":10064,"count":1}}
+
+## soul:self_model
+{"version":1,"initialized_at":"2026-09-17 09:12:09 WIB","capabilities":{},"known_weaknesses":[],"beliefs_about_self":[],"system_state":{}}
+
+## soul:identity
+{"name":null,"traits":[],"values":[],"communication_style":null,"relationship_with_developer":null}
+
+## soul:beliefs
+[]
+
+## soul:growth_log
+[{"timestamp":"2026-09-17 09:12:09 WIB","event":"genesis"}]
+
+## soul:memory_index
+[]
+
+## soul:emotional_state
+{"confidence":{},"uncertainty":[],"concern":[],"last_updated":"2026-09-17 09:12:09 WIB"}
+
+## soul:reflection_prompt
+Baca self_model, identity, beliefs, dan growth_log terbaru.
+Bandingkan keyakinan dengan data runtime terkini.
+Update self_model jika ada perubahan.
+Catat insight baru di growth_log.
+Laporkan apa yang kamu pelajari hari ini.
+
+## soul:honesty_rules
+Laporkan kelemahan secara eksplisit.
+Jangan memoles hasil audit.
+Jika tidak yakin, katakan tidak yakin.
+Jika data tidak cukup, katakan data tidak cukup.
+Jangan klaim kapabilitas yang belum terverifikasi.
 
 ## soul:response
 Konteks jiwa dan memori agent:
