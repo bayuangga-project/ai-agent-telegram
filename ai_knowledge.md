@@ -332,3 +332,12 @@ Jangan membuat klaim yang tidak didukung data.
 
 ## soul:growth_log
 [{"timestamp":"2026-09-17 09:12:09 WIB","event":"genesis"},{"timestamp":"2026-09-17 20:21:37 WIB","event":"system_change","detail":"knowledge_updated:llm:available_free_models"},{"timestamp":"2026-09-17 20:25:50 WIB","event":"system_change","detail":"knowledge_updated:llm:benchmark_results"}]
+
+## benchmark:diagnostic_prompt
+Jawab HANYA JSON murni tanpa markdown: {"calc": 47 * 23, "logic": "Apakah semua A pasti C jika semua A adalah B dan beberapa B adalah C? (ya/tidak)"}
+
+## benchmark:pattern_calc
+"calc"\s*:\s*1081
+
+## benchmark:pattern_logic
+"logic"\s*:\s*"tidak"
