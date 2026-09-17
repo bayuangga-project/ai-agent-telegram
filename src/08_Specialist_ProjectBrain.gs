@@ -317,6 +317,16 @@ var ProjectBrain = {
     return llmResult.text;
   },
 
+   /**
+   * Memperbarui status item roadmap (Public API)
+   * @param {string} feature - Nama atau identifikasi fitur
+   * @param {string} status - Status baru (misal: 'in_progress', 'done', dsb)
+   * @return {*} Hasil dari _updateItemStatus
+   */
+  updateRoadmapStatus(feature, status) {
+    return this._updateItemStatus(feature, status);
+  },
+
   /**
    * ============================================================
    * INTERNAL HELPERS
