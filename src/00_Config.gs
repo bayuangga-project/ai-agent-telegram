@@ -46,3 +46,8 @@ const Config = {
     return this.load();
   }
 };
+
+const SYSTEM_FALLBACK = {
+  LLM_UNREACHABLE: "[SYSTEM] LLM service unavailable.",
+  ACTION_FAILED: "[SYSTEM] Action execution failed."
+};
