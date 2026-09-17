@@ -5,18 +5,45 @@
  * kirim notifikasi.
  * ===================================================================
  */
+/**
+ * Memeriksa reminder yang jatuh tempo dan mengirimkan notifikasi.
+ * Dilindungi LockService untuk mencegah eksekusi ganda bersamaan.
+ */
 function cekDanKirimReminder() {
-  try {
-    const chatId = Config.load().myChatId;
-    const dueReminders = ReminderSpecialist.getRemindersDueNow();
+  const lock = LockService.getScriptLock();
+  
+  // Lewati jika eksekusi menit sebelumnya masih berlangsung
+  if (!lock.tryLock(2000)) {
+    return;
+  }
 
-    dueReminders.forEach(function(reminder) {
-      const text = ReminderSpecialist.buildNotificationText(reminder);
-      TelegramService.sendMessage(chatId, text);
+  try {
+    const remindersDue = ReminderSpecialist.getReminderDueNow();
+    if (!remindersDue || remindersDue.length === 0) {
+      return;
+    }
+
+    const targetChatId = Config.myChatId;
+    if (!targetChatId) {
+      AppLogger.warning("REMINDER_TRIGGER", "MY_TELEGRAM_CHAT_ID belum dikonfigurasi.");
+      return;
+    }
+
+    remindersDue.forEach(function(reminder) {
+      const pesan = ReminderSpecialist.buildNotificationText(reminder);
+      TelegramService.sendMessage(targetChatId, pesan);
       ReminderSpecialist.markAsNotified(reminder);
     });
-  } catch (error) {
-    AppLogger.error('REMINDER_CHECKER_ERROR', error.message);
+  } catch (err) {
+    AppLogger.error(
+      "REMINDER_TRIGGER_ERROR",
+      JSON.stringify({
+        errorMessage: err.message,
+        stack: err.stack
+      })
+    );
+  } finally {
+    lock.releaseLock();
   }
 }
 
