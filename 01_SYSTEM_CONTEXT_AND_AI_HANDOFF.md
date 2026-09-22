@@ -1,4 +1,4 @@
-# 01 — System Context, Goals, Requirements & AI Handoff
+# 01 ? System Context, Goals, Requirements & AI Handoff
 
 > Sumber kebenaran: `src/` pada snapshot repository yang diunggah. `README.md`, `ARCHITECTURE.md`, dan `PROGRESS.md` lama sengaja tidak digunakan sebagai dasar fakta dalam kumpulan dokumentasi ini.
 
@@ -14,12 +14,12 @@ Perilaku yang ditargetkan adalah AI agent pribadi yang otonom, berinisiatif, ber
 
 ### Truth labels used in this documentation
 
-- **Terimplementasi** — directly evidenced by executable source code and reachable call paths.
-- **Terimplementasi sebagian** — kapabilitas tersedia, tetapi satu atau lebih tahap masih hilang, lemah, atau bersyarat.
-- **Dikonfigurasi/tersedia** — code tersedia dan dapat beroperasi ketika kredensial/trigger/konfigurasi tersedia.
-- **Terisolasi** — code tersedia, tetapi routing saat ini belum secara jelas membuatnya dapat dijangkau dari percakapan biasa.
-- **Belum terverifikasi** — inspeksi source saja tidak dapat membuktikan keberhasilan perilaku di produksi.
-- **Risiko/Celah** — observable weakness, inconsistency, or maintainability concern.
+- **Terimplementasi** ? directly evidenced by executable source code and reachable call paths.
+- **Terimplementasi sebagian** ? kapabilitas tersedia, tetapi satu atau lebih tahap masih hilang, lemah, atau bersyarat.
+- **Dikonfigurasi/tersedia** ? code tersedia dan dapat beroperasi ketika kredensial/trigger/konfigurasi tersedia.
+- **Terisolasi** ? code tersedia, tetapi routing saat ini belum secara jelas membuatnya dapat dijangkau dari percakapan biasa.
+- **Belum terverifikasi** ? inspeksi source saja tidak dapat membuktikan keberhasilan perilaku di produksi.
+- **Risiko/Celah** ? observable weakness, inconsistency, or maintainability concern.
 
 ## 3. Primary users and actors
 
@@ -93,7 +93,7 @@ Mencadangkan source proyek dan dokumentasi ke GitHub serta mendukung alur branch
 
 ## 8. AI handoff instructions
 
-Ketika AI lain mulai bekerja pada repository ini, AI tersebut harus membaca dokumen ini terlebih dahulu, kemudian `02_ARCHITECTURE_AND_FLOWS.md`, lalu `03_IMPLEMENTATION_REFERENCE.md`, sebelum mengubah code. AI harus mengidentifikasi lapisan yang terdampak, memeriksa rantai caller/callee, menjaga kontrak data-sheet, menjaga bentuk intent terstruktur, dan memperbarui catatan dokumentasi/kemajuan yang relevan setiap kali perilaku berubah.
+Ketika AI lain mulai bekerja pada repository ini, AI tersebut harus membaca dokumen ini terlebih dahulu, kemudian `02_ARCHITECTURE_AND_FLOWS.md`, lalu `03_IMPLEMENTATION_AND_CODE_REFERENCE.md`, sebelum mengubah code. AI harus mengidentifikasi lapisan yang terdampak, memeriksa rantai caller/callee, menjaga kontrak data-sheet, menjaga bentuk intent terstruktur, dan memperbarui catatan dokumentasi/kemajuan yang relevan setiap kali perilaku berubah.
 
 ## 9. Coverage of the original 16-document set
 
