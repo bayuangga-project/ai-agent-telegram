@@ -338,17 +338,23 @@ const Manager = {
   _handleAuditCode(chatId, text, intent) {
     var scope = (intent.audit_code && intent.audit_code.scope) || 'full';
     var result = CodeAuditor.runAudit(scope);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+
+    if (!result.success) {
+      return this._askLLMWithKnowledge(chatId, text, 'audit', 'error', result);
+    }
+
+    return this._askLLMWithKnowledge(chatId, text, 'audit', 'report_response', result);
   },
 
   _handleFixAudit(chatId, text, intent) {
     var scope = (intent.fix_audit && intent.fix_audit.scope) || 'all';
     var result = CodeAuditor.fixIssues(scope);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+
+    if (!result.success) {
+      return this._askLLMWithKnowledge(chatId, text, 'audit', 'error', result);
+    }
+
+    return this._askLLMWithKnowledge(chatId, text, 'audit', 'fix_response', result);
   },
 
   _handleCheckChanges(chatId, text, intent) {
