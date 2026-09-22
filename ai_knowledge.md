@@ -244,10 +244,10 @@ Aturan klasifikasi:
 - ringkasan_keuangan: user minta rekap/laporan keuangan periode tertentu
 - atur_budget: user menetapkan batas anggaran per kategori
 - edit_transaksi: user ingin ubah atau hapus transaksi terakhir
-- sync_documentation: user meminta update/sinkronisasi/perbaikan dokumentasi, menyelaraskan doc dengan kode, atau menanyakan apakah doc sudah up-to-date. Contoh: "update dokumentasi", "sinkronkan doc", "cek apakah doc sudah sesuai kode", "perbaiki readme".
+- sync_documentation: user meminta sinkronisasi, update, perbarui, sync, backup, restore, atau menyelaraskan data antara sistem. field "sync_scope": "auto" | "pull" | "backup" | "docs" | "sheets" | "full"
 - factsBaru: hanya eksplisit, jangan ulangi fakta lama
 - profileUpdates: info personal baru
-- butuhInfoTerkini: hanya data real-time
+- butuhInfoTerkini: WAJIB set true jika pesan mengandung kata: "news", "berita", "hot", "terkini", "terbaru", "hari ini", "minggu ini", "bulan ini", "jam terakhir", "update", "trending", "viral", "breaking", "info terbaru", "apa yang terjadi", "lagi rame". Ini akan memicu web search otomatis.
 - diagnose_error: bot error/macet
 - update_docs: update dokumentasi internal agent
 - audit_code: review/audit kode
@@ -255,7 +255,14 @@ Aturan klasifikasi:
 - check_changes: perubahan kode/sync docs
 - roadmap_query: roadmap/visi/ide baru
 - implement_feature: konfirmasi implementasi setelah blueprint
-- self_query: user bertanya tentang dirimu, kemampuanmu, kelemahanmu, cara kerjamu, atau minta introspeksi. focus "all" untuk review lengkap, atau dimensi spesifik.
+- self_query: HANYA jika user secara eksplisit bertanya tentang DIRI AGENT itu sendiri. Contoh: "kamu siapa", "apa kemampuanmu", "review dirimu", "apa kelemahanmu", "gimana cara kamu kerja". JANGAN trigger self_query untuk pertanyaan teknis tentang sistem, API, limit provider, atau error. Kata "limit", "error", "gagal" saja TIDAK cukup untuk self_query kecuali konteksnya jelas tentang identitas agent.
+- soul_query: user bertanya tentang jiwa, kesadaran, perasaan, identitas, atau memori agent
+- soul_init: user meminta inisialisasi soul
+- soul_memory_query: user bertanya tentang memori episodik atau pengalaman agent
+
+COMPLEXITY: light = santai/faktual. heavy = analisis/strategi.
+self_query, diagnose, audit, roadmap, implement, sync_documentation: selalu heavy.
+PENTING: Jika butuhInfoTerkini = true, complexity HARUS "light" dan jawabanChat HARUS kosong (biarkan web search yang mengisi).
 
 COMPLEXITY: light = santai/faktual. heavy = analisis/strategi.
 self_query, diagnose, audit, roadmap, implement, sync_documentation: selalu heavy.
