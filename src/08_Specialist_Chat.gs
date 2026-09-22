@@ -1,46 +1,93 @@
 /**
  * ===================================================================
- * SPESIALIS: CHAT / BRAINSTORM
- * Tanggung jawab: obrolan natural + kemampuan browsing internet
- * untuk info terkini (via WebSearchService).
+ * SPESIALIS: CHAT
+ * Menyusun respons percakapan umum dan integrasi pencarian web.
+ * Menggunakan persona dinamis dari SOUL dan template dari KnowledgeRepository.
  * ===================================================================
  */
 const ChatSpecialist = {
+
   buildSystemPersona() {
-    return BOT_PERSONA;
-},
+    var template = KnowledgeRepository.get('soul', 'system_persona');
+    if (!template) {
+      template = KnowledgeRepository.get('intent', 'persona') || '';
+    }
+
+    var soulContext = null;
+    try {
+      soulContext = SoulSpecialist.getFullContext();
+    } catch (e) {
+      // Fallback jika soul belum terinisialisasi
+    }
+
+    var basePersona = KnowledgeRepository.get('intent', 'persona') || '';
+    if (!soulContext) {
+      return basePersona;
+    }
+
+    var identity = soulContext.identity || {};
+    var selfModel = soulContext.self_model || {};
+    var beliefs = soulContext.beliefs || [];
+
+    var traitsStr = Array.isArray(identity.traits) && identity.traits.length > 0
+      ? identity.traits.join(', ') : '-';
+    var valuesStr = Array.isArray(identity.values) && identity.values.length > 0
+      ? identity.values.join(', ') : '-';
+    var beliefsStr = Array.isArray(beliefs) && beliefs.length > 0
+      ? beliefs.map(function(b) { return b.text || b; }).join('; ') : '-';
+    var weaknessesStr = selfModel && Array.isArray(selfModel.known_weaknesses) && selfModel.known_weaknesses.length > 0
+      ? selfModel.known_weaknesses.join(', ') : '-';
+
+    var variables = {
+      persona: basePersona,
+      name: identity.name || '-',
+      traits: traitsStr,
+      values: valuesStr,
+      communication_style: identity.communication_style || '-',
+      beliefs: beliefsStr,
+      weaknesses: weaknessesStr
+    };
+
+    return TemplateEngine.render(template, variables);
+  },
 
   needsWebSearch(intent) {
-    return !!(intent.butuhInfoTerkini && intent.searchQuery);
+    return !!(intent && (intent.butuhInfoTerkini || intent.butuh_web_search));
   },
 
   respondWithSearchContext(userMessage, searchResults, riwayat) {
-  const searchContext = WebSearchProviderService.formatResultsAsContext(searchResults);
-  const prompt = [
-    this.buildSystemPersona(),
-    '',
-    '=== HASIL PENCARIAN INTERNET TERKINI ===',
-    searchContext,
-    '',
-    '=== RIWAYAT PERCAKAPAN ===',
-    this._formatRiwayat(riwayat),
-    '',
-    '=== PESAN USER ===',
-    userMessage,
-    '',
-    'Jawab pertanyaan user menggunakan hasil pencarian di atas sebagai sumber',
-    'informasi utama. Sebutkan secara natural kalau info ini dari hasil pencarian',
-    'terkini. Jangan mengarang di luar hasil pencarian yang tersedia.'
-  ].join('\n');
+    var template = KnowledgeRepository.get('chat', 'web_search_prompt');
+    var systemPersona = this.buildSystemPersona();
+    var searchContext = WebSearchProviderService.formatResultsAsContext(searchResults);
+    var riwayatFormatted = this._formatRiwayat(riwayat);
 
-  const result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'fast');
-  return result ? result.text : 'Maaf, aku lagi kesulitan mengolah hasil pencarian ini.';
-},
+    var prompt = '';
+    if (template) {
+      prompt = TemplateEngine.render(template, {
+        persona: systemPersona,
+        search_results: searchContext,
+        riwayat: riwayatFormatted
+      });
+    } else {
+      prompt = systemPersona + '\n\n' + searchContext;
+    }
+
+    var result = LLMProviderService.generate({
+      taskType: 'web_grounded',
+      chain: 'advanced',
+      systemInstruction: prompt,
+      messages: [{ role: 'user', text: userMessage }],
+      temperature: 0.7
+    });
+
+    return (result && result.text) ? result.text : null;
+  },
 
   _formatRiwayat(riwayat) {
-    if (!riwayat || riwayat.length === 0) return 'Belum ada riwayat percakapan.';
-    return riwayat.map(item =>
-      (item.role === 'ai' ? 'AI' : 'User') + ': ' + item.text
-    ).join('\n');
+    if (!riwayat || riwayat.length === 0) return '-';
+    return riwayat.map(function(item) {
+      var role = (item.role === 'ai' || item.role === 'assistant') ? 'AI' : 'User';
+      return role + ': ' + (item.text || item.content || '');
+    }).join('\n');
   }
 };
