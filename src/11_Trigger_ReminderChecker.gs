@@ -1,31 +1,25 @@
 /**
  * ===================================================================
  * ENTRY POINT: REMINDER CHECKER (Time-based Trigger)
- * Tanggung jawab: dijalankan tiap menit, cek reminder jatuh tempo,
- * kirim notifikasi.
  * ===================================================================
- */
-/**
- * Memeriksa reminder yang jatuh tempo dan mengirimkan notifikasi.
- * Dilindungi LockService untuk mencegah eksekusi ganda bersamaan.
  */
 function cekDanKirimReminder() {
   const lock = LockService.getScriptLock();
   
-  // Lewati jika eksekusi menit sebelumnya masih berlangsung
   if (!lock.tryLock(2000)) {
     return;
   }
 
   try {
-    const remindersDue = ReminderSpecialist.getReminderDueNow();
+    const remindersDue = ReminderSpecialist.getMenungguRespon();
     if (!remindersDue || remindersDue.length === 0) {
       return;
     }
 
-    const targetChatId = Config.myChatId;
+    const config = Config.load();
+    const targetChatId = config.myChatId;
     if (!targetChatId) {
-      AppLogger.warning("REMINDER_TRIGGER", "MY_TELEGRAM_CHAT_ID belum dikonfigurasi.");
+      AppLogger.warning("REMINDER_TRIGGER", "MY_TELEGRAM_CHAT_ID_MISSING");
       return;
     }
 
@@ -54,5 +48,4 @@ function setupReminderTrigger() {
     }
   });
   ScriptApp.newTrigger('cekDanKirimReminder').timeBased().everyMinutes(1).create();
-  Logger.log('Trigger reminder checker berhasil dibuat!');
 }
