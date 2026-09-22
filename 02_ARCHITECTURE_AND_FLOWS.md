@@ -1,8 +1,8 @@
-# 02 — Architecture, Data Model, Execution Flows & Dependencies
+# 02 ? Architecture, Data Model, Execution Flows & Dependencies
 
 ## 1. Runtime architecture
 
-```mermaid
+mermaid
 flowchart TD
   TG[Telegram] --> WH[WebhookHandler]
   WH --> CR[CommandRouter]
@@ -23,7 +23,7 @@ flowchart TD
   TGOUT[TelegramService] --> TG
   M --> TGOUT
   TR[Time-based Triggers] --> S
-```
+
 
 ## 2. Model lapisan
 
@@ -133,10 +133,10 @@ Sebuah reminder berisi deskripsi, waktu awal, status, prioritas, catatan, tipe/k
 ## 10. LLM architecture
 
 ### Advanced chain
-`OpenRouter advanced → Gemini Pro Preview → Gemini Flash → Groq`.
+`OpenRouter advanced ? Gemini Pro Preview ? Gemini Flash ? Groq`.
 
 ### Fast chain
-`OpenRouter fast → Gemini Flash → Groq`.
+`OpenRouter fast ? Gemini Flash ? Groq`.
 
 ID model aktual dapat dikonfigurasi untuk OpenRouter dan Gemini melalui Script Properties; Groq memiliki konstanta model yang ditentukan oleh source.
 
@@ -186,14 +186,4 @@ Hal ini membentuk jembatan antara agent Apps Script yang sedang berjalan dan rep
 - Akses Telegram API harus tetap melalui `TelegramService`.
 - Panggilan LLM eksternal sebaiknya tetap melalui object provider dan `LLMProviderService` jika memungkinkan.
 - Pencarian harus tetap melalui `WebSearchProviderService`.
-- Akses data Sheet harus tetap berada di repository/gateway, bukan tersebar di specialist.
-- Eksekusi patch yang dihasilkan harus tetap melalui validasi dan status siklus hidup patch yang eksplisit.
-- Handler trigger harus menyediakan function wrapper global karena trigger berbasis waktu Apps Script memanggil nama function global.
-
-## 16. Architecture-level observed issues
-
-- **Celah keterjangkauan FinanceSpecialist:** specialist tersedia, tetapi jalur utama `Manager._routeIntent()` yang teramati tidak menunjukkan cabang intent keuangan khusus dengan pola yang jelas seperti reminder/roadmap/audit/self-healing. Karena itu, fungsi keuangan didokumentasikan sebagai code yang terimplementasi, tetapi tidak diasumsikan sepenuhnya dapat dijangkau dari routing intent biasa.
-- **Celah kontrak ProjectBrain:** inspeksi source menemukan pemanggilan `ProjectBrain.updateRoadmapStatus()` pada code berorientasi fitur, sementara method yang sesuai tidak ada dalam inventaris object ProjectBrain saat ini. Hal ini harus diperlakukan sebagai defect kompatibilitas konkret sampai direkonsiliasi.
-- **Celah loop self-healing:** diagnosis → pembuatan patch → validasi/penerapan patch → deploy → verifikasi perilaku belum menjadi closed loop yang sepenuhnya otonom.
-- **Celah semantik trigger:** komentar scheduler audit menjelaskan logika audit ringan pada Senin dan audit penuh pada hari pertama bulan, sedangkan konfigurasi trigger yang terlihat berjalan setiap Senin pukul 07:00; pemilihan penuh-vs-ringan bergantung pada detail implementasi `runScheduledAudit()` dan tidak boleh disimpulkan melebihi bukti code.
-- **Ketergantungan dokumentasi:** sebagian fungsi manajemen diri proyek masih membaca artefak dokumentasi yang disimpan melalui aplikasi, sehingga dokumentasi sendiri dapat menjadi dependensi runtime.
+- Mutasi GitHub harus tetap melalui `GitHubOpsService` atau `GitHubBackupService` dan memerlukan validasi eksplisit sebelum eksekusi.
