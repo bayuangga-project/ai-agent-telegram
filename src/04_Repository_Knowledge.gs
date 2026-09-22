@@ -1,13 +1,11 @@
 /**
  * ===================================================================
- * REPOSITORY: KNOWLEDGE
- * Penyimpanan sentral konfigurasi, prompt, dan metadata sistem.
+ * REPOSITORY: KNOWLEDGE (PURE PERSISTENCE LAYER)
  * ===================================================================
  */
 const KnowledgeRepository = {
   SHEET_NAME: 'AI_Knowledge',
   COL: { ID: 1, NAMESPACE: 2, KEY: 3, CONTENT: 4, VERSION: 5, ACTIVE: 6, UPDATED_AT: 7, NOTES: 8 },
-  TECHNICAL_NAMESPACES: ['intent', 'llm', 'llm_routing', 'benchmark', 'docsync', 'audit', 'sync'],
 
   _getSheet() {
     return SpreadsheetGateway.getSheet(this.SHEET_NAME);
@@ -87,15 +85,6 @@ const KnowledgeRepository = {
     SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       newId, namespace, key, content, newVersion, true, now, notes || ''
     ]);
-
-    // Hook auto-dokumentasi hanya untuk namespace teknis (mencegah loop rekursif)
-    try {
-      if (this.TECHNICAL_NAMESPACES.indexOf(namespace) >= 0 && notes !== 'SYS_AUTO_SYNC') {
-        SyncOrchestrator.autoDocument('knowledge_updated:' + namespace + ':' + key);
-      }
-    } catch (e) {
-      // Silent error logging jika orchestrator belum siap
-    }
   },
 
   deactivate(namespace, key) {
