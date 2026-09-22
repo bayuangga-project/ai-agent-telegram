@@ -162,14 +162,139 @@ function triggerKnowledgeSync() {
 }
 
 
+function triggerManualDiscoveryAndBenchmark() {
+  var res = LLMIntelligence.runFullPipeline();
+  Logger.log('PIPELINE_RESULT: ' + JSON.stringify(res, null, 2));
+}
 
+/**
+ * Uji Coba Tahap 1: Discovery (Ekspektasi: 2-5 detik)
+ */
+function test_Stage1_Discover() {
+  var t0 = new Date().getTime();
+  var res = LLMIntelligence.discoverModels();
+  var duration = (new Date().getTime() - t0) / 1000;
+  Logger.log('STAGE_1_RESULT (Durasi ' + duration + 's): ' + JSON.stringify(res, null, 2));
+}
 
+/**
+ * Uji Coba Tahap 2: Benchmark 3 Model (Ekspektasi: 30-60 detik)
+ */
+function test_Stage2_BenchmarkBatch() {
+  var t0 = new Date().getTime();
+  var res = LLMIntelligence.benchmarkBatch();
+  var duration = (new Date().getTime() - t0) / 1000;
+  Logger.log('STAGE_2_RESULT (Durasi ' + duration + 's): ' + JSON.stringify(res, null, 2));
+}
 
+/**
+ * Uji Coba Tahap 3: Ranking Matrix (Ekspektasi: 1-2 detik)
+ */
+function test_Stage3_Rank() {
+  var t0 = new Date().getTime();
+  var res = LLMIntelligence.rankModels();
+  var duration = (new Date().getTime() - t0) / 1000;
+  Logger.log('STAGE_3_RESULT (Durasi ' + duration + 's): ' + JSON.stringify(res, null, 2));
+}
 
+/**
+ * Diagnostik Token dan Kuota GitHub API
+ */
+function test_CheckGitHubRateLimitAndAuth() {
+  var config = Config.load();
+  var token = config.githubToken;
+  var headers = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'GAS-Agent-Test'
+  };
+  if (token) {
+    headers['Authorization'] = 'token ' + token;
+  }
 
+  var res = UrlFetchApp.fetch('https://api.github.com/rate_limit', {
+    headers: headers,
+    muteHttpExceptions: true
+  });
 
+  Logger.log('HTTP_STATUS: ' + res.getResponseCode());
+  Logger.log('RESPONSE: ' + res.getContentText());
+}
 
+function fix_CleanBenchmarkData() {
+  var raw = KnowledgeRepository.get('llm', 'benchmark_results');
+  if (!raw) {
+    Logger.log('No benchmark data found');
+    return;
+  }
 
+  var results;
+  try { results = JSON.parse(raw); } catch (e) { return; }
 
+  var cleaned = {};
+  var removed = [];
+  var fixed = [];
 
+  for (var modelId in results) {
+    if (!results.hasOwnProperty(modelId)) continue;
+    var r = results[modelId];
+
+    // Buang model non-free
+    if (modelId.indexOf(':free') === -1) {
+      removed.push(modelId);
+      continue;
+    }
+
+    // Buang model yang tidak responsif
+    if (r.avgLatencyMs === 20000 || r.avgLatencyMs === 99999 || r.avgLatencyMs === -1) {
+      removed.push(modelId);
+      continue;
+    }
+
+    // Perbaiki scoring yang salah (totalScore 0 padahal quality tinggi)
+    if (r.qualityScore > 0 && r.totalScore === 0) {
+      var latencyScore = r.latencyScore || 0;
+      r.totalScore = Math.round((r.qualityScore * 0.7) + (latencyScore * 0.3));
+      fixed.push(modelId + ': new_score=' + r.totalScore);
+    }
+
+    cleaned[modelId] = r;
+  }
+
+  KnowledgeRepository.save('llm', 'benchmark_results', JSON.stringify(cleaned), 'DATA_CLEANUP');
+  LLMIntelligence.rankModels();
+
+  Logger.log('REMOVED: ' + JSON.stringify(removed));
+  Logger.log('FIXED: ' + JSON.stringify(fixed));
+  Logger.log('REMAINING: ' + Object.keys(cleaned).length);
+}
+
+/**
+ * Membersihkan loop statistik yang menumpuk dan mereset matrix ke model stabil
+ */
+function resetAndCleanSystemCounters() {
+  // 1. Reset counters
+  KnowledgeRepository.save('llm_stats', 'counters', '{}', 'RESET');
+
+  // 2. Pasang matrix kandidat model gratis yang valid
+  var stableModels = [
+    'nvidia/nemotron-3.5-lightning:free',
+    'nex-agi/nex-n2.5-pro:free',
+    'meta-llama/llama-4-maverick:free',
+    'google/gemini-2.0-flash-exp:free',
+    'google/gemma-4-31b-it:free'
+  ];
+
+  var matrix = {
+    chat_light: stableModels,
+    chat_heavy: stableModels,
+    intent_analysis: stableModels,
+    code_analysis: stableModels,
+    code_generation: stableModels,
+    documentation: stableModels,
+    web_grounded: stableModels
+  };
+
+  KnowledgeRepository.save('llm_routing', 'matrix', JSON.stringify(matrix), 'RESET_MATRIX');
+  Logger.log('SYSTEM_RESET_SUCCESS: Matrix & Counters cleaned.');
+}
 
