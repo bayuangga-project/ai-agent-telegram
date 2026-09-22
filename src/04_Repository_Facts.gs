@@ -8,7 +8,7 @@ const FactsRepository = {
   STATUS_ACTIVE: 'Active',
 
   save(chatId, factText, category) {
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       IdGenerator.generate('MEM'), new Date(), chatId,
       category || 'general', factText, this.STATUS_ACTIVE
     ]);
