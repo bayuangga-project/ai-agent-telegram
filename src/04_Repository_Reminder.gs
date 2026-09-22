@@ -14,9 +14,10 @@ const ReminderRepository = {
     JENIS_RECURRING: 9, RECURRING_CONFIG: 10, JUMLAH_DIINGATKAN: 11
   },
 
+  // Di objek ReminderRepository:
   create(data) {
     const id = IdGenerator.generate('REM');
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       id, new Date(), data.deskripsi, data.waktuPertama, this.STATUS_AKTIF,
       data.prioritas || 'Normal', '', data.catatan || '',
       data.jenisRecurring || 'none', data.recurringConfig || '', 0
@@ -105,8 +106,9 @@ const ReminderRepository = {
 const AckPatternsRepository = {
   SHEET_NAME: 'Reminder_AckPatterns',
 
+  // Di objek AckPatternsRepository:
   save(pesanUser, interpretasi, aksi) {
-    SpreadsheetGateway.getSheet(this.SHEET_NAME).appendRow([
+    SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
       IdGenerator.generate('ACK'), new Date(), pesanUser, interpretasi, aksi
     ]);
   },
