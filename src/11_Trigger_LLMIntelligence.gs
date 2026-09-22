@@ -1,6 +1,13 @@
+/**
+ * ===================================================================
+ * TRIGGER: DAILY LLM INTELLIGENCE PIPELINE
+ * Menjalankan Discovery -> Benchmark 3 Model -> Update Ranking pada jam 03:00.
+ * ===================================================================
+ */
 function runDailyLLMDiscovery() {
-  var result = LLMIntelligence.discoverAndBenchmark();
-  AppLogger.info('LLM_DAILY_TRIGGER', JSON.stringify(result));
+  AppLogger.info('TRIGGER_LLM_INTEL_START', 'daily_03:00');
+  var pipelineResult = LLMIntelligence.runFullPipeline();
+  AppLogger.info('TRIGGER_LLM_INTEL_END', JSON.stringify(pipelineResult));
 }
 
 function setupDailyLLMDiscovery() {
@@ -14,5 +21,5 @@ function setupDailyLLMDiscovery() {
     .atHour(3)
     .everyDays(1)
     .create();
-  AppLogger.info('LLM_TRIGGER_SETUP', 'daily_03:00');
+  AppLogger.info('TRIGGER_SETUP_SUCCESS', 'runDailyLLMDiscovery');
 }
