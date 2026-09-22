@@ -1,172 +1,191 @@
 /**
  * ===================================================================
- * SPESIALIS: DOCUMENTATION SYNC (DOCSYNC)
- * Menyinkronkan file dokumentasi kanonik (.md) terhadap source code (.gs).
+ * SPESIALIS: SYNC ORCHESTRATOR
+ * Koordinator sentral untuk sinkronisasi Knowledge, Docs, dan Database.
  * ===================================================================
  */
-const DocSyncSpecialist = {
+const SyncOrchestrator = {
 
-  sync() {
+  assessState() {
+    return {
+      knowledge: this._assessKnowledge(),
+      documentation: this._assessDocumentation(),
+      sheets: this._assessSheetStructure(),
+      last_sync: this._getLastSyncTimestamp()
+    };
+  },
+
+  executeSync(scope) {
+    var results = {};
+
+    if (scope === 'pull' || scope === 'full' || scope === 'auto') {
+      results.knowledge_pull = this._pullKnowledge();
+    }
+
+    if (scope === 'backup' || scope === 'full' || scope === 'auto') {
+      results.knowledge_backup = this._backupKnowledge();
+    }
+
+    if (scope === 'docs' || scope === 'full' || scope === 'auto') {
+      results.documentation = this._syncDocumentation();
+    }
+
+    if (scope === 'sheets' || scope === 'full' || scope === 'auto') {
+      results.sheets = this._ensureSheets();
+    }
+
+    this._saveSyncTimestamp();
+
+    var totalActions = 0;
+    var totalSkipped = 0;
+    var errors = [];
+    var keys = Object.keys(results);
+    for (var i = 0; i < keys.length; i++) {
+      var r = results[keys[i]];
+      if (!r) continue;
+      if (r.status === 'error') errors.push({ area: keys[i], reason: r.reason });
+      if (r.actions) totalActions += r.actions;
+      if (r.skipped) totalSkipped += r.skipped;
+    }
+
+    return {
+      scope: scope,
+      results: results,
+      summary: {
+        total_actions: totalActions,
+        total_skipped: totalSkipped,
+        total_errors: errors.length,
+        errors: errors
+      }
+    };
+  },
+
+  autoDocument(changeDescription) {
     try {
-      var canonicalFiles = this._getCanonicalFiles();
-      var sourceMetadata = this._collectSourceMetadata();
-      var currentDocs = this._collectCurrentDocs(canonicalFiles);
-      var analysisResult = this._analyzeWithLLM(sourceMetadata, currentDocs, canonicalFiles);
-
-      if (!analysisResult || !analysisResult.updates || analysisResult.updates.length === 0) {
-        return { success: true, updated: [], unchanged: canonicalFiles, summary: 'no_changes_detected' };
-      }
-
-      var updatedFiles = [];
-      for (var i = 0; i < analysisResult.updates.length; i++) {
-        var update = analysisResult.updates[i];
-        if (!update.file || !update.content) continue;
-        if (!this._isCanonical(update.file, canonicalFiles)) continue;
-
-        var commitResult = this._commitDocUpdate(update.file, update.content, update.reason);
-        if (commitResult) {
-          updatedFiles.push({ file: update.file, reason: update.reason });
-        }
-      }
-
-      var unchanged = [];
-      for (var j = 0; j < canonicalFiles.length; j++) {
-        var isUpdated = false;
-        for (var k = 0; k < updatedFiles.length; k++) {
-          if (updatedFiles[k].file === canonicalFiles[j]) { isUpdated = true; break; }
-        }
-        if (!isUpdated) unchanged.push(canonicalFiles[j]);
-      }
-
+      AppLogger.info('AUTO_DOC_TRIGGERED', changeDescription);
+      var docResult = this._syncDocumentation();
+      var backupResult = this._backupKnowledge();
       return {
-        success: true,
-        updated: updatedFiles,
-        unchanged: unchanged,
-        summary: analysisResult.summary || 'sync_completed'
+        documentation: docResult,
+        knowledge_backup: backupResult,
+        change: changeDescription
       };
-    } catch (err) {
-      AppLogger.error('DOCSYNC_ERROR', JSON.stringify({ error: err.message, stack: err.stack }));
-      return { success: false, code: 'SYNC_EXECUTION_FAILED', detail: err.message };
+    } catch (e) {
+      AppLogger.error('AUTO_DOC_FAILED', e.message);
+      return { status: 'error', reason: e.message };
     }
   },
 
-  _getCanonicalFiles() {
-    var raw = KnowledgeRepository.get('docsync', 'canonical_files');
-    if (!raw) return [];
-    return raw.split('\n').map(function(line) {
-      return line.trim();
-    }).filter(function(line) {
-      return line.length > 0 && line.indexOf('.md') === line.length - 3;
-    });
-  },
-
-  _isCanonical(fileName, canonicalFiles) {
-    for (var i = 0; i < canonicalFiles.length; i++) {
-      if (canonicalFiles[i] === fileName) return true;
+  _assessKnowledge() {
+    try {
+      var sheetData = KnowledgeRepository.getAll();
+      return { status: 'available', entries: sheetData ? sheetData.length : 0 };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
     }
-    return false;
   },
 
-  _collectSourceMetadata() {
-    var files = GitHubOpsService.readAllSourceFiles();
-    if (!files || files.length === 0) return 'no_source_files_found';
-
-    var metadata = [];
-    for (var i = 0; i < files.length; i++) {
-      var f = files[i];
-      var name = f.name || f.path || 'unknown';
-      var content = f.content || '';
-      var loc = content.split('\n').length;
-      var methods = this._extractMethodSignatures(content);
-      metadata.push({ file: name, loc: loc, methods: methods });
+  _assessDocumentation() {
+    try {
+      var files = GitHubOpsService.readAllSourceFiles();
+      return { status: 'available', source_files: files ? files.length : 0 };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
     }
-    return JSON.stringify(metadata, null, 2);
   },
 
-  _extractMethodSignatures(content) {
-    var signatures = [];
-    var lines = content.split('\n');
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      var match = line.match(/^(\w+)\s*[:=]\s*function\s*\(([^)]*)\)/);
-      if (match) {
-        signatures.push(match[1] + '(' + match[2].trim() + ')');
-        continue;
-      }
-      var match2 = line.match(/^(\w+)\s*\(([^)]*)\)\s*\{/);
-      if (match2 && match2[1] !== 'if' && match2[1] !== 'for' && match2[1] !== 'while' && match2[1] !== 'function') {
-        signatures.push(match2[1] + '(' + match2[2].trim() + ')');
-      }
+  _assessSheetStructure() {
+    try {
+      var ss = SpreadsheetGateway.getSpreadsheet();
+      var sheets = ss.getSheets().map(function(s) { return s.getName(); });
+      return { status: 'available', existing_sheets: sheets };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
     }
-    return signatures;
   },
 
-  _collectCurrentDocs(canonicalFiles) {
-    var docs = {};
-    for (var i = 0; i < canonicalFiles.length; i++) {
-      var fileName = canonicalFiles[i];
-      try {
-        var fileData = GitHubOpsService.readFile(fileName);
-        if (fileData && fileData.content) {
-          var rawContent = fileData.content;
-          if (fileData.encoding === 'base64') {
-            rawContent = Utilities.newBlob(
-              Utilities.base64Decode(rawContent.replace(/\s/g, ''))
-            ).getDataAsString();
-          }
-          docs[fileName] = rawContent.substring(0, 10000);
+  _getLastSyncTimestamp() {
+    return KnowledgeRepository.get('sync', 'last_timestamp');
+  },
+
+  _saveSyncTimestamp() {
+    var now = DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB());
+    KnowledgeRepository.save('sync', 'last_timestamp', now, 'SYNC_AUTO');
+  },
+
+  _pullKnowledge() {
+    try {
+      var before = KnowledgeRepository.getAll();
+      var countBefore = before ? before.length : 0;
+      var result = KnowledgeSyncSpecialist.sync();
+      var after = KnowledgeRepository.getAll();
+      var countAfter = after ? after.length : 0;
+      var newEntries = countAfter - countBefore;
+      return {
+        status: 'success',
+        direction: 'github_to_sheet',
+        actions: newEntries > 0 ? newEntries : 0,
+        skipped: newEntries === 0 ? 1 : 0
+      };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
+    }
+  },
+
+  _backupKnowledge() {
+    try {
+      var result = KnowledgeSyncSpecialist.pushSheetToGitHub();
+      return {
+        status: result.status === 'success' ? 'success' : 'skipped',
+        direction: 'sheet_to_github',
+        actions: result.status === 'success' ? 1 : 0,
+        skipped: result.status === 'success' ? 0 : 1
+      };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
+    }
+  },
+
+  _syncDocumentation() {
+    try {
+      var result = DocSyncSpecialist.sync();
+      return {
+        status: result.success ? 'success' : 'error',
+        direction: 'code_to_docs',
+        actions: result.updated ? result.updated.length : 0,
+        skipped: result.unchanged ? result.unchanged.length : 0
+      };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
+    }
+  },
+
+  _ensureSheets() {
+    try {
+      var required = [
+        'Chat_History', 'Memory_Facts', 'User_Profile', 'Memory_Summaries',
+        'Reminder_RawData', 'Reminder_AckPatterns',
+        'Finance_Wallets', 'Finance_Transactions', 'Finance_Budgets',
+        'Log_System', 'Audit_Reports', 'Audit_Findings',
+        'Code_Snapshots', 'Roadmap_Items', 'Documentation',
+        'Self_Reviews', 'SelfHeal_Patches',
+        'AI_Knowledge', 'Soul_Episodic_Memory', 'Soul_Meta_Memory', 'Soul_User_Patterns'
+      ];
+      var ss = SpreadsheetGateway.getSpreadsheet();
+      var existing = ss.getSheets().map(function(s) { return s.getName(); });
+      var created = 0;
+      var skipped = 0;
+      for (var i = 0; i < required.length; i++) {
+        if (existing.indexOf(required[i]) >= 0) {
+          skipped++;
+        } else {
+          SpreadsheetGateway.ensureSheet(required[i], null);
+          created++;
         }
-      } catch (err) {
-        AppLogger.warning('DOCSYNC_READ_WARNING', 'file:' + fileName + '|error:' + err.message);
       }
-    }
-    return JSON.stringify(docs, null, 2);
-  },
-
-  _analyzeWithLLM(sourceMetadata, currentDocs, canonicalFiles) {
-    var template = KnowledgeRepository.get('docsync', 'analysis_prompt');
-    if (!template) {
-      AppLogger.error('DOCSYNC_NO_PROMPT', 'analysis_prompt_missing');
-      return null;
-    }
-
-    var prompt = TemplateEngine.render(template, {
-      source_metadata: sourceMetadata,
-      current_docs: currentDocs,
-      canonical_files: canonicalFiles.join('\n')
-    });
-
-    var result = LLMProviderService.generate({
-      taskType: 'docsync_analysis',
-      chain: 'advanced',
-      systemInstruction: prompt,
-      messages: [{ role: 'user', text: 'Analyze and return JSON.' }],
-      temperature: 0.3
-    });
-
-    if (!result || !result.text) return null;
-
-    var cleaned = result.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    try {
-      return JSON.parse(cleaned);
-    } catch (err) {
-      AppLogger.warning('DOCSYNC_PARSE_ERROR', err.message);
-      return null;
-    }
-  },
-
-  _commitDocUpdate(fileName, content, reason) {
-    try {
-      var existingFile = GitHubOpsService.readFile(fileName);
-      var sha = (existingFile && existingFile.sha) ? existingFile.sha : null;
-      var commitMsg = 'docsync:' + fileName;
-
-      GitHubOpsService.commitFile(fileName, content, commitMsg, null, sha);
-      AppLogger.info('DOCSYNC_COMMIT_SUCCESS', 'file:' + fileName);
-      return true;
-    } catch (err) {
-      AppLogger.error('DOCSYNC_COMMIT_FAILED', 'file:' + fileName + '|error:' + err.message);
-      return false;
+      return { status: 'success', actions: created, skipped: skipped };
+    } catch (e) {
+      return { status: 'error', reason: e.message };
     }
   }
 };
