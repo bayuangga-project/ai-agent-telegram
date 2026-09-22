@@ -31,9 +31,8 @@ const CommandRouter = {
     return null;
   },
 
-  _handleIngat(chatId, text) {
-    var args = text.substring(7).trim();
-    if (!args) return TelegramService.sendMessage(chatId, 'Format: /ingat <pesan>');
+  _handleIngat(chatId, args) {
+    if (!args) return 'Format: /ingat <pesan>';
     var intent = {
       tipe: 'buat_reminder',
       deskripsi: args,
