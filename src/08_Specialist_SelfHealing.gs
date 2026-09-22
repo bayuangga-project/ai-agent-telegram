@@ -180,23 +180,35 @@ var SelfHealingSpecialist = {
   _identifySuspectFiles: function(errorLogs, keluhan) {
     var suspectSet = {};
     var mapping = {
-      'TELEGRAM': '05_Service_Telegram.gs',
-      'LLM': '06_Service_LLM.gs',
-      'INTENT': '09_Manager_IntentAnalyzer.gs',
-      'WEBHOOK': '10_Handler_Webhook.gs',
-      'REMINDER': '11_Trigger_ReminderChecker.gs',
-      'FINANCE': '08_Specialist_Finance.gs',
-      'REPO': '01_SpreadsheetGateway.gs',
-      'SEARCH': '07_Service_WebSearch.gs',
-      'GITHUB': '13_Service_GitHubOps.gs',
-      'SELF_HEAL': '08_Specialist_SelfHealing.gs'
+      'TELEGRAM': ['05_Service_Telegram.gs'],
+      'LLM': [
+        '06_Service_LLMProvider.gs',
+        '06_Service_LLM_Gemini.gs',
+        '06_Service_LLM_Groq.gs',
+        '06_Service_LLM_OpenRouter.gs'
+      ],
+      'INTENT': ['09_Manager_IntentAnalyzer.gs'],
+      'WEBHOOK': ['10_Handler_Webhook.gs'],
+      'REMINDER': ['11_Trigger_ReminderChecker.gs', '08_Specialist_Reminder.gs'],
+      'FINANCE': ['08_Specialist_Finance.gs', '04_Repository_Transaction.gs', '04_Repository_Wallet.gs'],
+      'REPO': ['01_SpreadsheetGateway.gs', '04_Repository_Knowledge.gs'],
+      'SEARCH': [
+        '07_Service_WebSearchProvider.gs',
+        '07_Service_WebSearch_Google.gs',
+        '07_Service_WebSearch_Tavily.gs'
+      ],
+      'GITHUB': ['13_Service_GitHubOps.gs', '12_Service_GitHubBackup.gs'],
+      'SELF_HEAL': ['08_Specialist_SelfHealing.gs'],
+      'SOUL': ['08_Specialist_Soul.gs', '08_Specialist_SoulMemory.gs']
     };
 
     errorLogs.forEach(function(log) {
       var event = String(log.event).toUpperCase();
       Object.keys(mapping).forEach(function(key) {
         if (event.indexOf(key) !== -1) {
-          suspectSet[mapping[key]] = true;
+          mapping[key].forEach(function(file) {
+            suspectSet[file] = true;
+          });
         }
       });
     });
