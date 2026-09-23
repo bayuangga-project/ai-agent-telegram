@@ -397,3 +397,303 @@ PENTING - BATASAN PANJANG PESAN:
 Proses introspeksi diri mengalami kendala teknis.
 Detail:
 {{data}}
+
+## selfheal:diagnosis_prompt
+Kamu adalah senior software engineer yang mendiagnosis masalah di sistem AI Agent Telegram berbasis Google Apps Script.
+
+KELUHAN PENGGUNA:
+{{keluhan}}
+
+LOG ERROR TERAKHIR:
+{{error_logs}}
+
+SOURCE CODE FILE YANG DICURIGAI:
+{{source_code}}
+
+TUGAS:
+1. Analisis akar penyebab error secara objektif.
+2. Tentukan file mana yang perlu diperbaiki.
+3. Berikan kode LENGKAP file tersebut yang sudah diperbaiki (tanpa placeholder).
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "diagnosis": "penjelasan singkat akar masalah",
+  "technicalDetail": "penjelasan teknis mendalam",
+  "fileName": "nama_file.gs",
+  "patchedCode": "kode LENGKAP yang sudah diperbaiki",
+  "changes": ["poin perubahan 1", "poin perubahan 2"]
+}
+
+## selfheal:doc_update_prompt
+Kamu adalah technical writer untuk proyek AI Agent Telegram.
+
+INSTRUKSI PENGGUNA:
+{{instruction}}
+
+DOKUMENTASI SAAT INI:
+{{current_docs}}
+
+TUGAS:
+Perbarui file dokumentasi yang relevan berdasarkan instruksi. Pertahankan format yang ada.
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "files": [
+    {
+      "fileName": "nama_file.md",
+      "content": "isi lengkap file markdown yang baru"
+    }
+  ],
+  "summary": "ringkasan perubahan dokumentasi"
+}
+
+## selfheal:response
+Hasil diagnosis dan tindakan perbaikan otomatis (self-healing):
+{{data}}
+
+Tugasmu: Sampaikan hasil diagnosis dan status perbaikan ini kepada pengguna secara ringkas, jelas, dan natural dalam Bahasa Indonesia.
+Sebutkan:
+1. Apa masalah yang ditemukan.
+2. File apa yang diperbaiki dan poin-poin perubahannya.
+3. Branch Git dan Pull Request yang telah dibuat (jika ada).
+4. Jika ada peringatan/penolakan dari patch validator, jelaskan alasannya.
+
+## selfheal:doc_update_response
+Hasil pembaruan dokumentasi sistem:
+{{data}}
+
+Tugasmu: Sampaikan status pembaruan dokumentasi kepada pengguna secara ringkas dalam Bahasa Indonesia.
+
+## selfheal:error
+Terjadi kendala saat menjalankan modul self-healing.
+Detail:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini secara jelas kepada pengguna dalam Bahasa Indonesia.
+
+## feature:blueprint_prompt
+Kamu adalah software architect untuk proyek AI Agent Telegram berbasis Google Apps Script.
+
+STRUKTUR FILE SAAT INI:
+{{file_list}}
+
+SHEET DATABASE SAAT INI:
+{{sheet_list}}
+
+INTENT YANG SUDAH ADA:
+{{intent_list}}
+
+COMMAND YANG SUDAH ADA:
+{{command_list}}
+
+IDE FITUR BARU DARI PENGGUNA:
+"{{idea}}"
+
+TUGAS:
+Buat blueprint implementasi yang detail, modular, dan mematuhi arsitektur proyek (modul object literal, isolasi database di repository, 0% bahasa manusia di file .gs).
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "featureName": "nama fitur ringkas",
+  "description": "deskripsi singkat fitur",
+  "newFiles": [
+    {
+      "fileName": "nama_file.gs",
+      "type": "Repository | Specialist | Service | Trigger",
+      "description": "tanggung jawab file"
+    }
+  ],
+  "modifiedFiles": [
+    {
+      "fileName": "nama_file.gs",
+      "changes": ["perubahan 1", "perubahan 2"]
+    }
+  ],
+  "newSheets": [
+    {"sheetName": "nama_sheet", "columns": ["kol1", "kol2"]}
+  ],
+  "newIntents": ["intent_baru"],
+  "newCommands": ["/command_baru"],
+  "estimatedComplexity": "low | medium | high",
+  "exampleConversation": "contoh percakapan"
+}
+
+## feature:new_file_prompt
+Buat file Google Apps Script BARU untuk proyek AI Agent Telegram.
+
+ATURAN ARSITEKTUR:
+- Object literal (const/var X = {...}), bukan class.
+- Repository = CRUD murni ke Sheet.
+- Specialist = logic bisnis murni (return object/JSON, dilarang berisi teks/kalimat balasan pengguna).
+- Service = gateway ke API eksternal.
+- Waktu selalu WIB via DateTimeUtils.
+- Semua insert ke Sheet pakai SpreadsheetGateway.appendRowSafe().
+
+NAMA FILE: {{file_name}}
+TIPE: {{file_type}}
+TANGGUNG JAWAB: {{file_description}}
+FITUR: {{feature_name}} - {{feature_description}}
+
+KONTEKS PROYEK:
+File yang ada: {{file_list}}
+Sheet yang ada: {{sheet_list}}
+
+Berikan kode LENGKAP siap pakai tanpa wrapper markdown.
+
+## feature:modify_file_prompt
+Perbarui file Google Apps Script berikut untuk mendukung fitur baru.
+
+ATURAN: Object literal, pertahankan fungsi yang sudah ada, tambahkan integrasi yang diperlukan. Dilarang memasukkan string bahasa manusia ke file .gs.
+
+NAMA FILE: {{file_name}}
+PERUBAHAN YANG DIPERLUKAN:
+{{changes}}
+
+KODE SAAT INI:
+{{existing_code}}
+
+FITUR BARU: {{feature_name}}
+
+Berikan kode LENGKAP file yang sudah diperbarui tanpa wrapper markdown.
+
+## feature:blueprint_response
+Blueprint fitur baru telah berhasil dibuat:
+{{data}}
+
+Tugasmu: Presentasikan blueprint arsitektur fitur baru ini kepada pengguna dalam Bahasa Indonesia secara terstruktur dan profesional.
+Rincikan:
+1. Nama dan deskripsi fitur.
+2. File baru dan file yang akan dimodifikasi.
+3. Sheet database baru yang dibutuhkan (jika ada).
+4. Estimasi kompleksitas.
+5. Tanyakan apakah pengguna menyetujui blueprint ini untuk langsung diimplementasikan.
+
+## feature:implement_response
+Implementasi blueprint fitur baru telah selesai:
+{{data}}
+
+Tugasmu: Sampaikan laporan implementasi kode kepada pengguna secara jelas dalam Bahasa Indonesia.
+Sebutkan:
+1. Branch Git dan Pull Request yang telah dibuat.
+2. File apa saja yang berhasil di-commit.
+3. Sheet database baru yang perlu dipersiapkan (jika ada).
+4. Ingatkan untuk meninjau PR di GitHub.
+
+## feature:error
+Terjadi kendala saat merancang atau mengimplementasikan fitur baru.
+Detail:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini kepada pengguna secara natural dalam Bahasa Indonesia.
+
+## roadmap:build_prompt
+Kamu adalah technical project manager untuk proyek AI Agent Telegram.
+
+ROADMAP SAAT INI:
+{{existing_roadmap}}
+
+FITUR YANG SUDAH TERCATAT:
+{{existing_items}}
+
+DISKUSI DARI PENGGUNA:
+"{{user_input}}"
+
+TUGAS:
+Susun atau perbarui ROADMAP proyek (Visi, Prinsip Desain, Kategori Fitur, Roadmap per Kuartal, Anti-Goals).
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "roadmapContent": "isi lengkap ROADMAP.md dalam format markdown",
+  "items": [
+    {"feature": "nama fitur", "category": "kategori", "priority": "P1|P2|P3", "status": "done|planned|idea", "notes": "catatan"}
+  ],
+  "summary": "ringkasan perubahan"
+}
+
+## roadmap:sync_prompt
+Kamu adalah project manager yang menyinkronkan roadmap dengan kode nyata.
+
+ROADMAP SAAT INI:
+{{existing_roadmap}}
+
+ROADMAP ITEMS DARI SHEET:
+{{existing_items}}
+
+DAFTAR FILE DI REPOSITORY:
+{{file_names}}
+
+TUGAS:
+Bandingkan roadmap dengan kode nyata. Identifikasi fitur yang sudah ada kodenya (update status ke done) atau file baru yang belum tercatat.
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "updates": [
+    {"feature": "nama", "oldStatus": "planned", "newStatus": "done", "reason": "kode terdeteksi"}
+  ],
+  "newItems": [
+    {"feature": "nama", "category": "kat", "priority": "P2", "status": "done", "notes": "terdeteksi otomatis"}
+  ],
+  "roadmapChanges": "deskripsi perubahan markdown atau null",
+  "summary": "ringkasan sinkronisasi"
+}
+
+## roadmap:adapt_prompt
+Kamu adalah technical co-founder yang mengevaluasi ide fitur baru terhadap roadmap proyek.
+
+ROADMAP SAAT INI:
+{{existing_roadmap}}
+
+DAFTAR FITUR SAAT INI:
+{{existing_items}}
+
+IDE BARU DARI PENGGUNA:
+"{{idea}}"
+
+TUGAS:
+Evaluasi keselarasan ide (alignment), identifikasi duplikasi/fitur serupa, tentukan prioritas dan dependensi.
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "aligned": true | false | "partial",
+  "existingFeature": "nama fitur serupa atau null",
+  "conflicts": ["konflik dengan prinsip jika ada"],
+  "suggestedPriority": "P1|P2|P3|P4",
+  "suggestedTimeline": "estimasi kuartal",
+  "dependencies": ["dependensi teknis"],
+  "acceptIdea": true | false,
+  "newItem": {"feature": "nama", "category": "kat", "priority": "P?", "status": "idea", "notes": "catatan"} atau null,
+  "narrative": "penjelasan analisis untuk pengguna"
+}
+
+## roadmap:query_prompt
+Konteks dokumen dan status roadmap proyek:
+{{roadmap_context}}
+
+PERTANYAAN PENGGUNA:
+"{{question}}"
+
+Tugasmu: Jawab pertanyaan pengguna mengenai roadmap, status proyek, dan rencana pengembangan secara akurat, faktual, dan natural dalam Bahasa Indonesia.
+
+## roadmap:update_prompt
+Perbarui dokumen ROADMAP.md berikut berdasarkan deskripsi perubahan:
+
+DESKRIPSI PERUBAHAN:
+{{changes_description}}
+
+KONTEN ROADMAP SAAT INI:
+{{existing_content}}
+
+Berikan isi LENGKAP ROADMAP.md yang baru dalam format markdown tanpa wrapper JSON.
+
+## roadmap:response
+Data hasil operasi roadmap:
+{{data}}
+
+Tugasmu: Sampaikan status roadmap ini kepada pengguna dalam Bahasa Indonesia secara jelas, ringkas, dan natural.
+
+## roadmap:error
+Terjadi kendala saat memproses operasi roadmap.
+Detail:
+{{data}}
+
+Tugasmu: Sampaikan kendala ini secara jelas kepada pengguna dalam Bahasa Indonesia.
