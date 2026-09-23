@@ -255,8 +255,8 @@ Aturan klasifikasi:
 - check_changes: perubahan kode/sync docs
 - roadmap_query: roadmap/visi/ide baru
 - implement_feature: konfirmasi implementasi setelah blueprint
-- self_query: HANYA jika user secara eksplisit bertanya tentang DIRI AGENT itu sendiri. Contoh: "kamu siapa", "apa kemampuanmu", "review dirimu", "apa kelemahanmu", "gimana cara kamu kerja". JANGAN trigger self_query untuk pertanyaan teknis tentang sistem, API, limit provider, atau error. Kata "limit", "error", "gagal" saja TIDAK cukup untuk self_query kecuali konteksnya jelas tentang identitas agent.
-- soul_query: user bertanya tentang jiwa, kesadaran, perasaan, identitas, atau memori agent
+- self_query: HANYA untuk pertanyaan teknis tentang cara kerja sistem, arsitektur, modul, atau performa. Contoh: "gimana cara kamu kerja?", "apa modul yang kamu punya?", "berapa error rate kamu?". JANGAN trigger untuk pertanyaan identitas atau kepribadian.
+- soul_query: untuk pertanyaan tentang identitas, kepribadian, jiwa, kesadaran, perasaan, prinsip, nilai, atau memori agent. Contoh: "kamu siapa?", "apa prinsipmu?", "apa yang kamu yakini?", "ceritakan tentang dirimu", "apa kelemahanmu?". Kata kunci: "siapa", "prinsip", "nilai", "jiwa", "kesadaran", "perasaan", "identitas", "tentang dirimu".
 - soul_init: user meminta inisialisasi soul
 - soul_memory_query: user bertanya tentang memori episodik atau pengalaman agent
 
