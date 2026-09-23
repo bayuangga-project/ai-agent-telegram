@@ -13,6 +13,19 @@ const ReminderSpecialist = {
     return ReminderRepository.getMenungguRespon(30);
   },
 
+  getReminderDueNow() {
+    var now = DateTimeUtils.nowWIB();
+    var active = ReminderRepository.getActive();
+    var due = [];
+    for (var i = 0; i < active.length; i++) {
+      var r = active[i];
+      if (this._isDueNow(r, now)) {
+        due.push(r);
+      }
+    }
+    return due;
+  },
+
   listActiveAsText() {
     return ReminderRepository.formatDaftarAktifSebagaiTeks();
   },
