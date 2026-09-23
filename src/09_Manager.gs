@@ -103,7 +103,6 @@ const Manager = {
 
     var response = LLMProviderService.generate({
       taskType: namespace === 'finance' ? 'finance_response' : 'chat_light',
-      chain: 'fast',
       systemInstruction: systemInstruction,
       messages: [{ role: 'user', text: userText }],
       temperature: 0.7
@@ -322,17 +321,21 @@ const Manager = {
   _handleDiagnoseError(chatId, text, intent) {
     var keluhan = (intent.diagnose_error && intent.diagnose_error.keluhanUser) || text;
     var result = SelfHealingSpecialist.diagnose(keluhan);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+
+    if (!result.success) {
+      return this._askLLMWithKnowledge(chatId, text, 'selfheal', 'error', result);
+    }
+    return this._askLLMWithKnowledge(chatId, text, 'selfheal', 'response', result);
   },
 
   _handleUpdateDocs(chatId, text, intent) {
     var instruksi = (intent.update_docs && intent.update_docs.instruksi) || text;
     var result = SelfHealingSpecialist.updateDocumentation(instruksi);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+
+    if (!result.success) {
+      return this._askLLMWithKnowledge(chatId, text, 'selfheal', 'error', result);
+    }
+    return this._askLLMWithKnowledge(chatId, text, 'selfheal', 'doc_update_response', result);
   },
 
   _handleAuditCode(chatId, text, intent) {
@@ -370,29 +373,57 @@ const Manager = {
     var action = rq.action || 'ask';
     var question = rq.question || text;
     var result;
-    if (action === 'build') result = ProjectBrain.buildRoadmapFromDiscussion(question);
-    else if (action === 'check_alignment' || action === 'adapt')
+
+    if (action === 'build') {
+      result = ProjectBrain.buildRoadmapFromDiscussion(question);
+    } else if (action === 'check_alignment' || action === 'adapt') {
       result = ProjectBrain.adaptRoadmapForNewIdea(question);
-    else result = ProjectBrain.answerQuestion(question);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+    } else if (action === 'sync') {
+      result = ProjectBrain.syncRoadmapWithCode();
+    } else {
+      var answer = ProjectBrain.answerQuestion(question);
+      if (answer) {
+        ChatHistoryRepository.save(chatId, 'user', text);
+        ChatHistoryRepository.save(chatId, 'ai', answer);
+        return answer;
+      }
+      result = { success: false, code: 'QUERY_FAILED' };
+    }
+
+    if (result && !result.success) {
+      return this._askLLMWithKnowledge(chatId, text, 'roadmap', 'error', result);
+    }
+    return this._askLLMWithKnowledge(chatId, text, 'roadmap', 'response', result);
   },
 
   _handleImplementFeature(chatId, text, intent) {
     var idea = (intent.implement_feature && intent.implement_feature.idea) || text;
-    var result = FeatureArchitect.implementBlueprint(idea);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+    
+    // Evaluasi apakah pengguna meminta implementasi atau membuat blueprint
+    var isConfirmImplement = text.toLowerCase().indexOf('implement') >= 0 || text.toLowerCase().indexOf('terapkan') >= 0;
+    var result;
+
+    if (isConfirmImplement) {
+      result = FeatureArchitect.implementBlueprint(idea);
+      if (!result.success) {
+        return this._askLLMWithKnowledge(chatId, text, 'feature', 'error', result);
+      }
+      return this._askLLMWithKnowledge(chatId, text, 'feature', 'implement_response', result);
+    }
+
+    result = FeatureArchitect.generateBlueprint(idea);
+    if (!result.success) {
+      return this._askLLMWithKnowledge(chatId, text, 'feature', 'error', result);
+    }
+    return this._askLLMWithKnowledge(chatId, text, 'feature', 'blueprint_response', result);
   },
 
   _handleSelfQuery(chatId, text, intent) {
     var focus = (intent.self_query && intent.self_query.focus) || 'all';
     var result = SelfAwareness.review(focus);
-    ChatHistoryRepository.save(chatId, 'user', text);
-    ChatHistoryRepository.save(chatId, 'ai', result);
-    return result;
+
+    // Kirim data mentah hasil introspeksi ke LLM untuk diformat secara natural
+    return this._askLLMWithKnowledge(chatId, text, 'selfaware', 'review_response', result);
   },
 
   _handleChatBiasa(chatId, text, intent, riwayat) {
@@ -412,10 +443,9 @@ const Manager = {
   },
 
   _handleHeavyChat(text, intent, riwayat) {
-    AppLogger.info('MANAGER_HEAVY_CHAT', 'chain:advanced');
+    AppLogger.info('MANAGER_HEAVY_CHAT', 'task:chat_heavy');
     var result = LLMProviderService.generate({
       taskType: 'chat_heavy',
-      chain: 'advanced',
       systemInstruction: ChatSpecialist.buildSystemPersona(),
       messages: riwayat.concat([{ role: 'user', text: text }]),
       temperature: 0.7
@@ -429,10 +459,9 @@ const Manager = {
   },
 
   _handleIntentFailure(chatId, text, riwayat) {
-    AppLogger.error('MANAGER_INTENT_FAILURE', 'fallback:advanced');
+    AppLogger.error('MANAGER_INTENT_FAILURE', 'task:chat_light');
     var result = LLMProviderService.generate({
       taskType: 'chat_light',
-      chain: 'advanced',
       systemInstruction: ChatSpecialist.buildSystemPersona(),
       messages: riwayat.concat([{ role: 'user', text: text }]),
       temperature: 0.7
