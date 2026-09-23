@@ -153,7 +153,6 @@ const CodeAuditor = {
       var prompt = self._buildAuditPrompt(batch, data, categories);
       var llmResult = LLMProviderService.generate({
         taskType: 'code_analysis',
-        chain: 'advanced',
         systemInstruction: prompt,
         messages: [{ role: 'user', text: 'Analyze and return JSON findings array.' }],
         temperature: 0.2
@@ -311,7 +310,6 @@ const CodeAuditor = {
 
     var llmResult = LLMProviderService.generate({
       taskType: 'code_generation',
-      chain: 'advanced',
       systemInstruction: prompt,
       messages: [{ role: 'user', text: 'Generate complete patched files in JSON.' }],
       temperature: 0.1
