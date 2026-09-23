@@ -1,11 +1,13 @@
 /**
- * SPECIALIST: SELF-HEALING
- * Tanggung jawab: mendiagnosis error dari log, membaca source code
- * dari GitHub, menghasilkan patch perbaikan, dan mengcommit ke GitHub.
+ * ===================================================================
+ * SPESIALIS: SELF-HEALING
+ * Tanggung jawab: Diagnosis error dari log, pembuatan patch GitHub,
+ * dan pembaruan dokumentasi berbasis LLM.
+ * ===================================================================
  */
-var SelfHealingSpecialist = {
+const SelfHealingSpecialist = {
 
-  getLevel: function() {
+  getLevel() {
     try {
       var props = PropertiesService.getScriptProperties();
       var level = parseInt(props.getProperty('SELF_HEAL_LEVEL') || '2', 10);
@@ -15,127 +17,129 @@ var SelfHealingSpecialist = {
     }
   },
 
-  diagnose: function(keluhanUser) {
-    AppLogger.info('SELF_HEAL_START', 'Keluhan: ' + keluhanUser);
+  diagnose(keluhanUser) {
+    AppLogger.info('SELF_HEAL_START', 'keluhan:' + keluhanUser);
 
     var logs = this._getRecentLogs(30);
     var errorLogs = this._filterErrorLogs(logs);
     var suspectFiles = this._identifySuspectFiles(errorLogs, keluhanUser);
 
     var sourceMap = {};
-    suspectFiles.forEach(function(fileName) {
-      var fileData = GitHubOpsService.readFile('src/' + fileName);
+    for (var i = 0; i < suspectFiles.length; i++) {
+      var fileName = suspectFiles[i];
+      var path = fileName.indexOf('src/') === 0 ? fileName : 'src/' + fileName;
+      var fileData = GitHubOpsService.readFile(path);
+      if (!fileData) fileData = GitHubOpsService.readFile(fileName);
       if (fileData) {
         sourceMap[fileName] = fileData;
       }
-    });
+    }
 
     if (Object.keys(sourceMap).length === 0) {
-      return '❌ Gagal membaca source code dari GitHub. ' +
-             'Silakan cek GITHUB_TOKEN di Script Properties (kemungkinan expired atau kurang scope `repo`).';
+      return { success: false, code: 'SOURCE_READ_FAILED' };
     }
 
-    var diagnosis = this._askLLMForDiagnosis(
-      keluhanUser, errorLogs, sourceMap
-    );
+    var diagnosis = this._askLLMForDiagnosis(keluhanUser, errorLogs, sourceMap);
 
-    if (!diagnosis || !diagnosis.patchedCode) {
-      return this._formatDiagnosisOnly(diagnosis, errorLogs);
+    if (!diagnosis || !diagnosis.patchedCode || !diagnosis.fileName) {
+      return {
+        success: true,
+        status: 'diagnosis_only',
+        diagnosis: diagnosis ? diagnosis.diagnosis : 'NO_CLEAR_DIAGNOSIS',
+        technicalDetail: diagnosis ? diagnosis.technicalDetail : null,
+        errorLogs: errorLogs.slice(-3)
+      };
     }
 
-    this._savePatch(diagnosis);
+    var patchId = this._savePatch(diagnosis);
 
     var level = this.getLevel();
     if (level >= 2) {
-      return this._applyToGitHub(diagnosis);
+      var applyResult = this._applyToGitHub(diagnosis);
+      applyResult.patchId = patchId;
+      return applyResult;
     }
 
-    return this._formatPatchForChat(diagnosis);
+    return {
+      success: true,
+      status: 'patch_ready_pending_approval',
+      patchId: patchId,
+      diagnosis: diagnosis.diagnosis,
+      fileName: diagnosis.fileName,
+      changes: diagnosis.changes || []
+    };
   },
 
-  updateDocumentation: function(instruction) {
+  updateDocumentation(instruction) {
     AppLogger.info('SELF_HEAL_DOC_UPDATE', instruction);
 
-    var archFile = GitHubOpsService.readDocFile('ARCHITECTURE.md');
-    var progFile = GitHubOpsService.readDocFile('PROGRESS.md');
+    var canonicalFiles = ['01_SYSTEM_CONTEXT_AND_AI_HANDOFF.md', '02_ARCHITECTURE_AND_FLOWS.md', '03_IMPLEMENTATION_AND_CODE_REFERENCE.md', '04_OPERATIONS_TESTING_SECURITY_DEVELOPMENT.md', '05_ROADMAP_PROGRESS_AND_TECHNICAL_DEBT.md'];
+    var currentDocs = {};
 
-    if (!archFile && !progFile) {
-      return '❌ Gagal membaca dokumentasi dari GitHub. ' +
-             'Kemungkinan GITHUB_TOKEN expired atau kurang scope `repo`. ' +
-             'Silakan cek di Script Properties.';
+    for (var i = 0; i < canonicalFiles.length; i++) {
+      var fName = canonicalFiles[i];
+      var fileData = GitHubOpsService.readFile(fName);
+      if (fileData && fileData.content) {
+        currentDocs[fName] = fileData.content.substring(0, 5000);
+      }
     }
 
-    var prompt =
-      'Kamu adalah technical writer yang mengelola dokumentasi proyek AI Agent Telegram.\n\n' +
-      'INSTRUKSI USER:\n' + instruction + '\n\n' +
-      'ARCHITECTURE.md SAAT INI:\n' +
-      (archFile ? archFile.content : '(tidak terbaca)') + '\n\n' +
-      'PROGRESS.md SAAT INI:\n' +
-      (progFile ? progFile.content : '(tidak terbaca)') + '\n\n' +
-      'TUGAS:\n' +
-      'Update file yang relevan berdasarkan instruksi. Pertahankan format yang ada.\n\n' +
-      'FORMAT OUTPUT (JSON ketat tanpa wrapper markdown):\n' +
-      '{\n' +
-      '  "files": [\n' +
-      '    {\n' +
-      '      "fileName": "ARCHITECTURE.md atau PROGRESS.md",\n' +
-      '      "content": "isi lengkap file"\n' +
-      '    }\n' +
-      '  ],\n' +
-      '  "summary": "ringkasan perubahan"\n' +
-      '}';
+    var template = KnowledgeRepository.get('selfheal', 'doc_update_prompt');
+    var prompt = '';
+    if (template) {
+      prompt = TemplateEngine.render(template, {
+        instruction: instruction,
+        current_docs: JSON.stringify(currentDocs, null, 2)
+      });
+    } else {
+      prompt = instruction + '\n\n' + JSON.stringify(currentDocs);
+    }
 
-    var llmResult = LLMProviderService.generateFromSinglePrompt(prompt, 0.2, 'advanced');
+    var llmResult = LLMProviderService.generate({
+      taskType: 'documentation',
+      systemInstruction: prompt,
+      messages: [{ role: 'user', text: 'Generate updated documentation JSON.' }],
+      temperature: 0.2
+    });
 
     if (!llmResult || !llmResult.text) {
-      return '❌ Semua provider LLM gagal merespons. Coba lagi beberapa saat.';
+      return { success: false, code: 'DOC_UPDATE_LLM_FAILED' };
     }
 
-    var responseText = llmResult.text;
-
     try {
-      var cleaned = responseText.replace(/```json\n?/g, '')
-                                .replace(/```\n?/g, '').trim();
+      var cleaned = llmResult.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       var result = JSON.parse(cleaned);
 
-      if (result.files && result.files.length > 0) {
+      if (result.files && Array.isArray(result.files) && result.files.length > 0) {
         var commitResults = [];
+        for (var j = 0; j < result.files.length; j++) {
+          var f = result.files[j];
+          var ok = GitHubOpsService.updateDocFile(f.fileName, f.content, 'docs: ' + (result.summary || 'update'));
+          commitResults.push({ file: f.fileName, success: ok });
+        }
 
-        result.files.forEach(function(file) {
-          var ok = GitHubOpsService.updateDocFile(
-            file.fileName,
-            file.content,
-            'docs: ' + result.summary
-          );
-          commitResults.push({ file: file.fileName, success: ok });
-        });
-
-        var reply = '📝 *Update Dokumentasi Selesai*\n\n' +
-                    '*Ringkasan:* ' + result.summary + '\n\n' +
-                    '*Status File:*\n';
-        commitResults.forEach(function(r) {
-          reply += (r.success ? '✅' : '❌') + ' `' + r.file + '`\n';
-        });
-
-        return reply;
+        return {
+          success: true,
+          summary: result.summary,
+          files: commitResults
+        };
       }
 
-      return '🤷 Tidak ada perubahan dokumentasi yang perlu dilakukan.';
-
+      return { success: true, summary: 'NO_CHANGES_REQUIRED', files: [] };
     } catch (e) {
       AppLogger.error('SELF_HEAL_DOC_PARSE_FAIL', e.message);
-      return '❌ Gagal update dokumentasi: ' + e.message;
+      return { success: false, code: 'DOC_PARSE_FAILED', error: e.message };
     }
   },
 
-  applyPendingPatch: function(patchId) {
+  applyPendingPatch(patchId) {
     var patch = this._getPatchById(patchId);
     if (!patch) {
-      return '❌ Patch tidak ditemukan.';
+      return { success: false, code: 'PATCH_NOT_FOUND' };
     }
 
     if (patch.status !== 'pending') {
-      return '⚠️ Patch ini sudah berstatus: ' + patch.status;
+      return { success: false, code: 'PATCH_ALREADY_PROCESSED', status: patch.status };
     }
 
     return this._applyToGitHub({
@@ -145,7 +149,7 @@ var SelfHealingSpecialist = {
     });
   },
 
-  _getRecentLogs: function(count) {
+  _getRecentLogs(count) {
     try {
       var sheet = SpreadsheetGateway.getSheet('Log_System');
       var data = sheet.getDataRange().getValues();
@@ -166,7 +170,7 @@ var SelfHealingSpecialist = {
     }
   },
 
-  _filterErrorLogs: function(logs) {
+  _filterErrorLogs(logs) {
     return logs.filter(function(log) {
       var event = String(log.event).toUpperCase();
       return event.indexOf('FAIL') !== -1 ||
@@ -177,7 +181,7 @@ var SelfHealingSpecialist = {
     });
   },
 
-  _identifySuspectFiles: function(errorLogs, keluhan) {
+  _identifySuspectFiles(errorLogs, keluhan) {
     var suspectSet = {};
     var mapping = {
       'TELEGRAM': ['05_Service_Telegram.gs'],
@@ -217,111 +221,79 @@ var SelfHealingSpecialist = {
     return Object.keys(suspectSet);
   },
 
-  _askLLMForDiagnosis: function(keluhan, errorLogs, sourceMap) {
+  _askLLMForDiagnosis(keluhan, errorLogs, sourceMap) {
     var logText = errorLogs.length > 0
       ? errorLogs.map(function(l) {
           return '[' + l.timestamp + '] ' + l.event + ': ' + l.detail;
         }).join('\n')
-      : '(Tidak ada error log spesifik)';
+      : '-';
 
     var sourceText = '';
     Object.keys(sourceMap).forEach(function(fileName) {
-      sourceText += '\n\n=== FILE: ' + fileName + ' ===\n' +
-                    sourceMap[fileName].content;
+      sourceText += '\n\n=== FILE: ' + fileName + ' ===\n' + sourceMap[fileName].content;
     });
 
-    var prompt =
-      'Kamu adalah senior developer yang mendiagnosis bug di sistem ' +
-      'AI Agent Telegram berbasis Google Apps Script.\n\n' +
-      'ATURAN DESAIN PROYEK:\n' +
-      '- Modul ditulis sebagai object literal (var X = {...} atau const X = {...}), bukan class.\n' +
-      '- Lazy Evaluation: method pembungkus untuk panggil modul lain.\n' +
-      '- Waktu selalu WIB via DateTimeUtils.\n' +
-      '- Repository tidak tahu soal Telegram/LLM.\n\n' +
-      'KELUHAN USER:\n' + keluhan + '\n\n' +
-      'ERROR LOG:\n' + logText + '\n\n' +
-      'SOURCE CODE FILE:\n' + sourceText + '\n\n' +
-      'TUGAS:\n' +
-      '1. Analisis penyebab error.\n' +
-      '2. Tentukan file yang perlu diperbaiki.\n' +
-      '3. Berikan kode LENGKAP file tersebut yang sudah diperbaiki.\n\n' +
-      'FORMAT OUTPUT (JSON ketat tanpa pembungkus markdown):\n' +
-      '{\n' +
-      '  "diagnosis": "penjelasan singkat untuk user",\n' +
-      '  "technicalDetail": "penjelasan teknis",\n' +
-      '  "fileName": "nama file misal 05_Service_Telegram.gs",\n' +
-      '  "patchedCode": "kode LENGKAP file yang sudah diperbaiki",\n' +
-      '  "changes": ["poin perubahan 1", "poin perubahan 2"]\n' +
-      '}';
-
-    var llmResult = LLMProviderService.generateFromSinglePrompt(prompt, 0.1, 'advanced');
-
-    if (!llmResult || !llmResult.text) {
-      AppLogger.error('SELF_HEAL_LLM_ALL_FAILED', 'Semua provider gagal');
-      return null;
+    var template = KnowledgeRepository.get('selfheal', 'diagnosis_prompt');
+    var prompt = '';
+    if (template) {
+      prompt = TemplateEngine.render(template, {
+        keluhan: keluhan || '-',
+        error_logs: logText,
+        source_code: sourceText
+      });
+    } else {
+      prompt = keluhan + '\n\n' + logText + '\n\n' + sourceText;
     }
 
-    var responseText = llmResult.text;
+    var llmResult = LLMProviderService.generate({
+      taskType: 'code_analysis',
+      systemInstruction: prompt,
+      messages: [{ role: 'user', text: 'Diagnose and return JSON patch.' }],
+      temperature: 0.1
+    });
+
+    if (!llmResult || !llmResult.text) return null;
 
     try {
-      var cleaned = responseText.replace(/```json\n?/g, '')
-                                .replace(/```\n?/g, '').trim();
+      var cleaned = llmResult.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleaned);
     } catch (e) {
       AppLogger.error('SELF_HEAL_LLM_PARSE_FAIL', e.message);
-      return {
-        diagnosis: 'Saya menemukan indikasi masalah tapi gagal membuat patch otomatis.',
-        technicalDetail: responseText.substring(0, 500),
-        fileName: null,
-        patchedCode: null,
-        changes: []
-      };
+      return null;
     }
   },
 
-    _applyToGitHub: function(diagnosis) {
-    var branchName = 'fix/' +
-      diagnosis.fileName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() +
-      '-' + new Date().getTime();
+  _applyToGitHub(diagnosis) {
+    var timestamp = new Date().getTime();
+    var branchName = 'fix/' + diagnosis.fileName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '-' + timestamp;
 
-    // STEP 1: Baca kode original untuk validasi & SHA
-    var original = GitHubOpsService.readFile('src/' + diagnosis.fileName);
+    var path = diagnosis.fileName.indexOf('src/') === 0 ? diagnosis.fileName : 'src/' + diagnosis.fileName;
+    var original = GitHubOpsService.readFile(path);
+    if (!original) original = GitHubOpsService.readFile(diagnosis.fileName);
+
     var originalContent = original ? original.content : null;
     var sha = original ? original.sha : null;
 
-    // STEP 2: Validasi patch SEBELUM apapun
-    var validation = PatchValidator.validate(
-      diagnosis.patchedCode,
-      originalContent,
-      diagnosis.fileName
-    );
+    var validation = PatchValidator.validate(diagnosis.patchedCode, originalContent, diagnosis.fileName);
 
     if (!validation.valid) {
-      var errorReply = '🚫 *Patch Ditolak oleh Validator*\n\n' +
-                       '🔍 *Diagnosis:* ' + diagnosis.diagnosis + '\n\n' +
-                       '📁 *File:* `' + diagnosis.fileName + '`\n\n' +
-                       '❌ *Alasan:*\n';
-      validation.errors.forEach(function(err) {
-        errorReply += '• ' + err + '\n';
-      });
-      errorReply += '\nPatch tidak akan di-commit ke GitHub. ' +
-                    'Coba minta diagnosis ulang atau perbaiki manual.';
-      return errorReply;
+      return {
+        success: false,
+        code: 'PATCH_VALIDATION_FAILED',
+        diagnosis: diagnosis.diagnosis,
+        fileName: diagnosis.fileName,
+        errors: validation.errors
+      };
     }
 
-    // STEP 3: Buat backup branch dulu (safety net)
-    var backupBranch = GitHubOpsService.createBackupBranch('selfheal-' + new Date().getTime());
-
-    // STEP 4: Buat fix branch
+    var backupBranch = GitHubOpsService.createBackupBranch('selfheal-' + timestamp);
     var branchOk = GitHubOpsService.createBranch(branchName);
     if (!branchOk) {
-      return this._formatPatchForChat(diagnosis) +
-             '\n\n⚠️ Gagal buat branch di GitHub. Silakan apply manual.';
+      return { success: false, code: 'BRANCH_CREATION_FAILED', branchName: branchName };
     }
 
-    // STEP 5: Commit ke fix branch
     var commitOk = GitHubOpsService.commitFile(
-      'src/' + diagnosis.fileName,
+      path,
       diagnosis.patchedCode,
       'fix: ' + diagnosis.diagnosis + ' (auto-heal)',
       branchName,
@@ -329,24 +301,19 @@ var SelfHealingSpecialist = {
     );
 
     if (!commitOk) {
-      return this._formatPatchForChat(diagnosis) +
-             '\n\n⚠️ Gagal commit ke GitHub. Silakan apply manual.';
+      return { success: false, code: 'COMMIT_FAILED', branchName: branchName };
     }
 
-    // STEP 6: Buat Pull Request
     var prBody = '## Diagnosis\n' + diagnosis.diagnosis + '\n\n' +
                  '## Detail Teknis\n' + (diagnosis.technicalDetail || '-') + '\n\n' +
-                 '## Perubahan\n' +
-                 (diagnosis.changes || []).map(function(c) { return '- ' + c; }).join('\n') + '\n\n' +
-                 '## Validasi\n' + PatchValidator.formatResult(validation) + '\n\n';
+                 '## Perubahan\n' + (diagnosis.changes || []).map(function(c) { return '- ' + c; }).join('\n') + '\n\n';
 
     if (backupBranch) {
-      prBody += '## Backup\nBackup branch: `' + backupBranch + '`\n' +
-                'Rollback command: `git reset --hard ' + backupBranch + '`';
+      prBody += '## Backup\n`' + backupBranch + '`\n\n';
     }
 
     var prUrl = GitHubOpsService.createPullRequest(
-      '🤖 Auto-Heal: ' + diagnosis.fileName,
+      'Auto-Heal: ' + diagnosis.fileName,
       prBody,
       branchName,
       null
@@ -354,71 +321,19 @@ var SelfHealingSpecialist = {
 
     this._updatePatchStatus(diagnosis.fileName, 'committed');
 
-    var reply = '🛠️ *Perbaikan Berhasil Dibuat!*\n\n' +
-                '🔍 *Diagnosis:* ' + diagnosis.diagnosis + '\n\n' +
-                '📁 *File:* `' + diagnosis.fileName + '`\n' +
-                '🌿 *Branch:* `' + branchName + '`\n';
-
-    if (backupBranch) {
-      reply += '💾 *Backup:* `' + backupBranch + '`\n';
-    }
-
-    if (prUrl) {
-      reply += '🔗 *PR:* ' + prUrl + '\n';
-    }
-
-    reply += '\n📋 *Perubahan:*\n';
-    (diagnosis.changes || []).forEach(function(c) {
-      reply += '• ' + c + '\n';
-    });
-
-    if (validation.warnings.length > 0) {
-      reply += '\n⚠️ *Peringatan Validator:*\n';
-      validation.warnings.forEach(function(w) {
-        reply += '• ' + w + '\n';
-      });
-    }
-
-    reply += '\n📌 *Langkah selanjutnya:* Review PR di GitHub, lalu merge jika sesuai.';
-    return reply;
+    return {
+      success: true,
+      diagnosis: diagnosis.diagnosis,
+      fileName: diagnosis.fileName,
+      branchName: branchName,
+      backupBranch: backupBranch,
+      prUrl: prUrl,
+      changes: diagnosis.changes || [],
+      warnings: validation.warnings || []
+    };
   },
 
-  _formatPatchForChat: function(diagnosis) {
-    var reply = '🔍 *Hasil Diagnosis:*\n\n' +
-                diagnosis.diagnosis + '\n\n';
-
-    if (diagnosis.patchedCode && diagnosis.fileName) {
-      reply += '🔧 *File:* `' + diagnosis.fileName + '`\n\n' +
-               '📋 *Perubahan:*\n';
-      (diagnosis.changes || []).forEach(function(c) {
-        reply += '• ' + c + '\n';
-      });
-      reply += '\nKode perbaikan telah disimpan ke sheet `SelfHeal_Patches`.';
-    }
-
-    return reply;
-  },
-
-  _formatDiagnosisOnly: function(diagnosis, errorLogs) {
-    var reply = '🔍 *Hasil Diagnosis:*\n\n';
-
-    if (diagnosis && diagnosis.diagnosis) {
-      reply += diagnosis.diagnosis + '\n\n';
-    } else {
-      reply += 'Tidak ditemukan error yang jelas dari log.\n\n';
-    }
-
-    if (errorLogs.length > 0) {
-      reply += '📊 *Log Error Terakhir:*\n';
-      errorLogs.slice(-3).forEach(function(log) {
-        reply += '• `[' + log.event + ']` ' + log.detail.substring(0, 80) + '\n';
-      });
-    }
-
-    return reply;
-  },
-
-  _savePatch: function(diagnosis) {
+  _savePatch(diagnosis) {
     try {
       var id = IdGenerator.generate('PATCH');
       var timestamp = DateTimeUtils.nowWIB();
@@ -437,7 +352,7 @@ var SelfHealingSpecialist = {
     }
   },
 
-  _getPatchById: function(patchId) {
+  _getPatchById(patchId) {
     try {
       var sheet = SpreadsheetGateway.getSheet('SelfHeal_Patches');
       var data = sheet.getDataRange().getValues();
@@ -459,7 +374,7 @@ var SelfHealingSpecialist = {
     }
   },
 
-  _updatePatchStatus: function(fileName, newStatus) {
+  _updatePatchStatus(fileName, newStatus) {
     try {
       var sheet = SpreadsheetGateway.getSheet('SelfHeal_Patches');
       var data = sheet.getDataRange().getValues();
