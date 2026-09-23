@@ -74,7 +74,6 @@ const ChatSpecialist = {
 
     var result = LLMProviderService.generate({
       taskType: 'web_grounded',
-      chain: 'advanced',
       systemInstruction: prompt,
       messages: [{ role: 'user', text: userMessage }],
       temperature: 0.7
