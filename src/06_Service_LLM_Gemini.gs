@@ -1,6 +1,7 @@
 /**
  * ===================================================================
- * SERVICE: GEMINI LLM PROVIDER (TRUE AUTO-DISCOVERY)
+ * SERVICE: GEMINI LLM PROVIDER (VERIFIED MODELS SEP 2026)
+ * Model aktif berdasarkan: https://ai.google.dev/gemini-api/docs/models
  * ===================================================================
  */
 const GeminiProvider = {
@@ -25,27 +26,45 @@ const GeminiProvider = {
       var activeModels = [];
       for (var i = 0; i < data.models.length; i++) {
         var m = data.models[i];
-        if (m.supportedGenerationMethods &&
-            m.supportedGenerationMethods.indexOf('generateContent') >= 0) {
-          activeModels.push(m.name.replace(/^models\//, ''));
-        }
+        if (!m.supportedGenerationMethods) continue;
+        if (m.supportedGenerationMethods.indexOf('generateContent') === -1) continue;
+        var modelName = m.name.replace(/^models\//, '');
+        activeModels.push(modelName);
       }
 
       if (activeModels.length === 0) return null;
 
-      // Prioritaskan flash terbaru
-      var priorities = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+      // Prioritas berdasarkan dokumen resmi Google (Sep 2026):
+      // 1. gemini-3.5-flash-lite  = tercepat, paling efisien (rekomendasi Google)
+      // 2. gemini-3.6-flash       = balance speed + intelligence
+      // 3. gemini-3.8-flash       = paling pintar (untuk tugas berat)
+      // 4. gemini-3.7-flash       = alternatif bagus
+      // 5. gemini-3.1-flash-lite  = hemat kuota
+      var priorities = [
+        'gemini-3.5-flash-lite',
+        'gemini-3.6-flash',
+        'gemini-3.8-flash',
+        'gemini-3.7-flash',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash'
+      ];
+
       for (var p = 0; p < priorities.length; p++) {
         if (activeModels.indexOf(priorities[p]) >= 0) {
           this._cachedModel = priorities[p];
+          AppLogger.info('GEMINI_MODEL_SELECTED', this._cachedModel);
           return this._cachedModel;
         }
       }
 
-      // Ambil model flash apapun yang ada
+      // Fallback: ambil model flash apapun yang tersedia
       for (var j = 0; j < activeModels.length; j++) {
-        if (activeModels[j].indexOf('flash') >= 0) {
+        if (activeModels[j].indexOf('flash') >= 0 &&
+            activeModels[j].indexOf('image') === -1 &&
+            activeModels[j].indexOf('live') === -1 &&
+            activeModels[j].indexOf('tts') === -1) {
           this._cachedModel = activeModels[j];
+          AppLogger.info('GEMINI_MODEL_FALLBACK', this._cachedModel);
           return this._cachedModel;
         }
       }
