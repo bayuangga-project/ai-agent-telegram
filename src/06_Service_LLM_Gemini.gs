@@ -33,8 +33,8 @@ const GeminiProvider = {
 
       if (activeModels.length === 0) return null;
 
-      // Prioritaskan flash terbaru
-      var priorities = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+      // Prioritaskan flash terbaru sesuai pembaruan API Google
+      var priorities = ['gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
       for (var p = 0; p < priorities.length; p++) {
         if (activeModels.indexOf(priorities[p]) >= 0) {
           this._cachedModel = priorities[p];
