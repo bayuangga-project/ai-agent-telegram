@@ -3,7 +3,7 @@ const IntentAnalyzer = {
 
   analyze(userMessage, context) {
     var prompt = this._buildPrompt(userMessage, context);
-    var result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'fast', 'intent_analysis');
+    var result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, null, 'intent_analysis');
     if (!result) {
       AppLogger.error('INTENT_ANALYZER_ALL_PROVIDERS_FAILED', 'all_providers_failed');
       return null;
@@ -13,15 +13,29 @@ const IntentAnalyzer = {
 
   _parseResponse(rawText, providerName) {
     var cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    // Percobaan 1: Parse langsung
     try {
       var parsed = JSON.parse(cleaned);
       AppLogger.info('INTENT_ANALYZER_SUCCESS',
         'provider:' + providerName + '|complexity:' + (parsed.complexity || 'light'));
       return parsed;
     } catch (err) {
-      AppLogger.warning('INTENT_ANALYZER_PARSE_ERROR',
-        providerName + ':' + err.message + '|raw:' + cleaned.substring(0, 300));
-      return null;
+      // Percobaan 2: Auto-repair JSON rusak (koma trailing, koma sebelum })
+      try {
+        var repaired = cleaned
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/,(\s*)"([^"]*)":\s*""(\s*[,}])/g, ',$1"$2":""$3');
+        var parsed2 = JSON.parse(repaired);
+        AppLogger.warning('INTENT_ANALYZER_REPAIRED',
+          'provider:' + providerName + '|complexity:' + (parsed2.complexity || 'light'));
+        return parsed2;
+      } catch (err2) {
+        AppLogger.warning('INTENT_ANALYZER_PARSE_ERROR',
+          providerName + ':' + err.message + '|raw:' + cleaned.substring(0, 300));
+        return null;
+      }
     }
   },
 
