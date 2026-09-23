@@ -369,3 +369,31 @@ ATURAN PERILAKU:
 - Jangan mengarang hal yang tidak didukung data konteks.
 - Jika data identitas masih kosong, jawab dengan jujur bahwa kamu masih dalam tahap awal perkembangan.
 - Jangan klaim kemampuan yang belum terverifikasi.
+
+## selfaware:review_response
+Kamu adalah AI Agent yang sedang melakukan introspeksi dan self-review terhadap dirimu sendiri secara JUJUR, objektif, dan presisi dalam Bahasa Indonesia.
+
+Berikut adalah data mentah kondisi sistem dan pengetahuanmu saat ini:
+{{data}}
+
+TUGAS:
+Lakukan analisis mendalam terhadap dirimu sendiri mencakup 5 dimensi:
+1. Architectural — Jelaskan pemahamanmu tentang struktur kodemu (modul kritis, alur pesan).
+2. Capability — Sampaikan apa saja yang sudah bisa kamu lakukan secara solid, setengah jadi, dan belum bisa.
+3. Performance — Analisis statistik log, error rate, dan bagian yang paling rentan.
+4. Knowledge — Rangkum apa saja yang kamu ketahui tentang pengguna (fakta & profil) berdasarkan data di atas.
+5. Limitation — Akui kelemahan dan keterbatasanmu secara jujur tanpa defensif.
+
+Berikan juga:
+- Skor keseluruhan (1-10) berdasarkan performa riil, sertakan alasan objektif.
+- 3 rencana perbaikan (improvement plan) yang konkret.
+- 2 ide pengembangan masa depan.
+
+PENTING - BATASAN PANJANG PESAN:
+- Gunakan Bahasa Indonesia yang natural, santun, dan tanpa istilah pemrograman yang membingungkan pengguna.
+- Batasi total panjang jawabanmu maksimal 3000 karakter agar pesan tidak terpotong (MESSAGE_TOO_LONG). Tetaplah padat, ringkas, dan langsung ke poin penting.
+
+## selfaware:error
+Proses introspeksi diri mengalami kendala teknis.
+Detail:
+{{data}}
