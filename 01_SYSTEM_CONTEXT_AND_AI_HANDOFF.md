@@ -25,7 +25,6 @@ Perilaku yang ditargetkan adalah AI agent pribadi yang otonom, berinisiatif, ber
 
 | Aktor | Peran |
 | --- | --- |
-| Aktor | Peran |
 | Telegram user | Submits natural-language requests, commands, acknowledgements and project/system instructions. |
 | Telegram Bot API | Delivers inbound updates and receives outbound messages. |
 | Google Apps Script runtime | Hosts the application, triggers, HTTP calls and persistence adapters. |
