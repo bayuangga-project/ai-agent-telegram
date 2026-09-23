@@ -116,7 +116,7 @@ Hal ini membuat deteksi intent bersifat stateful dan sadar konteks, tetapi juga 
 | Audit_Findings | Audit issues | finding-based | Finding state + remediation. |
 | Code_Snapshots | Hash snapshot source | berbasis snapshot | Deteksi perubahan. |
 | Roadmap_Items | Roadmap | berbasis item | Status roadmap proyek. |
-| Dokumentasi | Dokumen | fileName/content | Sumber dokumentasi untuk alur backup/pembaruan GitHub tertentu. |
+| Documentation | Dokumen | fileName/content | Sumber dokumentasi untuk alur backup/pembaruan GitHub tertentu. |
 | Self_Reviews | Self-awareness reports | review-based | Penyimpanan self-review sistem. |
 | SelfHeal_Patches | Kandidat perbaikan | patch-based | Status patch dan code yang dihasilkan. |
 | GitHub | VCS eksternal | Object API | Status backup/kontrol source; bukan persistence lokal. |
@@ -186,4 +186,3 @@ Hal ini membentuk jembatan antara agent Apps Script yang sedang berjalan dan rep
 - Akses Telegram API harus tetap melalui `TelegramService`.
 - Panggilan LLM eksternal sebaiknya tetap melalui object provider dan `LLMProviderService` jika memungkinkan.
 - Pencarian harus tetap melalui `WebSearchProviderService`.
-- Mutasi GitHub harus tetap melalui `GitHubOpsService` atau `GitHubBackupService` dan memerlukan validasi eksplisit sebelum eksekusi.
