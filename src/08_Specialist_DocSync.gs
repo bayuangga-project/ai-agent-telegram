@@ -138,7 +138,6 @@ const DocSyncSpecialist = {
 
     var result = LLMProviderService.generate({
       taskType: 'docsync_analysis',
-      chain: 'advanced',
       systemInstruction: prompt,
       messages: [{ role: 'user', text: 'Analyze and return JSON.' }],
       temperature: 0.3
