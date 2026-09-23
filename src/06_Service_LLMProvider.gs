@@ -100,10 +100,9 @@ const LLMProviderService = {
     return null;
   },
 
-  generateFromSinglePrompt(promptText, temperature, chain, taskType) {
+  generateFromSinglePrompt(promptText, temperature, taskType) {
     return this.generate({
       taskType: taskType || 'chat_light',
-      chain: chain || 'fast',
       messages: [{ role: 'user', text: promptText }],
       temperature: temperature
     });
