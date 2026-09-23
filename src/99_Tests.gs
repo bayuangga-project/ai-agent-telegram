@@ -298,3 +298,18 @@ function resetAndCleanSystemCounters() {
   Logger.log('SYSTEM_RESET_SUCCESS: Matrix & Counters cleaned.');
 }
 
+/**
+ * Memaksa sinkronisasi data dari GitHub ke Sheet dan memverifikasi keberadaan template
+ */
+function forceSyncKnowledgeFromGitHub() {
+  var res = KnowledgeSyncSpecialist.sync();
+  Logger.log('SYNC_STATUS: ' + JSON.stringify(res));
+  
+  // Verifikasi apakah template baru sudah masuk ke database Sheet
+  var template = KnowledgeRepository.get('selfaware', 'review_response');
+  Logger.log('TEMPLATE_EXISTS: ' + (template ? 'YES' : 'NO'));
+  
+  // Verifikasi apakah aturan intent baru sudah masuk
+  var rules = KnowledgeRepository.get('intent', 'rules');
+  Logger.log('RULES_PATCHED: ' + (rules && rules.indexOf('soul_query') >= 0 ? 'YES' : 'NO'));
+}
