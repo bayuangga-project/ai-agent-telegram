@@ -11,7 +11,7 @@ function cekDanKirimReminder() {
   }
 
   try {
-    const remindersDue = ReminderSpecialist.getMenungguRespon();
+    const remindersDue = ReminderSpecialist.getReminderDueNow();
     if (!remindersDue || remindersDue.length === 0) {
       return;
     }
