@@ -21,7 +21,7 @@ const CommandRouter = {
     if (cmd === 'logs') return Manager._handleSelfQuery(chatId, text, { self_query: { focus: 'all' } });
     if (cmd === 'patch') return Manager._handleDiagnoseError(chatId, text, {});
     if (cmd === 'build') return Manager._handleImplementFeature(chatId, text, {});
-    if (cmd === 'ingat') return this._handleIngat(chatId, text);
+    if (cmd === 'ingat') return this._handleIngat(chatId, args);
     if (cmd === 'soul') return Manager._handleSoulQuery(chatId, args || text, {});
     if (cmd === 'init-soul') return Manager._handleSoulInit(chatId, text);
     if (cmd === 'backup') return Manager._handleBackupKnowledge(chatId, text);
