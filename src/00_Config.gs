@@ -1,7 +1,7 @@
 /**
  * ===================================================================
  * CONFIG
- * Membaca Script Properties dan cache untuk performa.
+ * Membaca Script Properties dan cache untuk performa runtime.
  * ===================================================================
  */
 const Config = {
@@ -15,9 +15,6 @@ const Config = {
       telegramBotToken: props.getProperty('TELEGRAM_BOT_TOKEN'),
       myChatId: props.getProperty('MY_TELEGRAM_CHAT_ID'),
       geminiApiKey: props.getProperty('GEMINI_API_KEY'),
-      geminiModelProPreview: props.getProperty('GEMINI_MODEL_PRO_PREVIEW'),
-      geminiModelFlash: props.getProperty('GEMINI_MODEL_FLASH'),
-      geminiModelFlashLite: props.getProperty('GEMINI_MODEL_FLASH_LITE'),
       groqApiKey: props.getProperty('GROQ_API_KEY'),
       spreadsheetId: props.getProperty('SPREADSHEET_ID'),
       sharedSecret: props.getProperty('SHARED_SECRET'),
@@ -27,12 +24,14 @@ const Config = {
       githubToken: props.getProperty('GITHUB_TOKEN'),
       githubRepoOwner: props.getProperty('GITHUB_REPO_OWNER'),
       githubRepoName: props.getProperty('GITHUB_REPO_NAME'),
-      githubBranch: props.getProperty('GITHUB_BRANCH'),
+      githubBranch: props.getProperty('GITHUB_BRANCH') || 'main',
       
-      // OpenRouter Configurations
+      // OpenRouter & Provider Tambahan
       openrouterApiKey: props.getProperty('OPENROUTER_API_KEY'),
-      openrouterModelAdvanced: props.getProperty('OPENROUTER_MODEL_ADVANCED') || 'deepseek/deepseek-chat',
-      openrouterModelFast: props.getProperty('OPENROUTER_MODEL_FAST') || 'google/gemini-2.0-flash-001'
+      cfAccountId: props.getProperty('CF_ACCOUNT_ID'),
+      cfApiToken: props.getProperty('CF_API_TOKEN'),
+      togetherApiKey: props.getProperty('TOGETHER_API_KEY'),
+      hfApiToken: props.getProperty('HF_API_TOKEN')
     };
     return this._cache;
   },
@@ -45,9 +44,4 @@ const Config = {
     this.clearCache();
     return this.load();
   }
-};
-
-const SYSTEM_FALLBACK = {
-  LLM_UNREACHABLE: "[SYSTEM] LLM service unavailable.",
-  ACTION_FAILED: "[SYSTEM] Action execution failed."
 };
