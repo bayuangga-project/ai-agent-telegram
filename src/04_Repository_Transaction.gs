@@ -28,6 +28,7 @@ const TransactionRepository = {
   _mapRow(row, rowIndex) {
     return {
       rowIndex,
+      _rowIndex: rowIndex, // Solusi defensif untuk ketidaksesuaian pemanggilan _rowIndex
       id: row[0],
       timestamp: new Date(row[1]),
       walletId: row[2],
@@ -67,11 +68,11 @@ const TransactionRepository = {
   },
 
   getByKategoriAndPeriode(kategori, tahunBulan) {
-  return this.getActive().filter(t => {
-    const txTahunBulan = DateTimeUtils.formatPeriode(t.tanggalTransaksi);
-    return t.kategori === kategori && txTahunBulan === tahunBulan;
-  });
-},
+    return this.getActive().filter(t => {
+      const txTahunBulan = DateTimeUtils.formatPeriode(t.tanggalTransaksi);
+      return t.kategori === kategori && txTahunBulan === tahunBulan;
+    });
+  },
 
   softDelete(rowIndex) {
     SpreadsheetGateway.getSheet(this.SHEET_NAME)
