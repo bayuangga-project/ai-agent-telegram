@@ -3,7 +3,7 @@ const IntentAnalyzer = {
 
   analyze(userMessage, context) {
     var prompt = this._buildPrompt(userMessage, context);
-    var result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, null, 'intent_analysis');
+    var result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'intent_analysis');
     if (!result) {
       AppLogger.error('INTENT_ANALYZER_ALL_PROVIDERS_FAILED', 'all_providers_failed');
       return null;
