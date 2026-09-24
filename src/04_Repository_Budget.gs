@@ -22,6 +22,7 @@ const BudgetRepository = {
     const data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
     return data.map((row, index) => ({
       rowIndex: index + 2,
+      _rowIndex: index + 2, // Solusi defensif untuk ketidaksesuaian pemanggilan _rowIndex
       id: row[0],
       kategori: row[1],
       batasJumlah: row[2],
@@ -37,11 +38,11 @@ const BudgetRepository = {
    * Sheets menyimpannya secara internal.
    */
   _normalizePeriode(value) {
-  if (value instanceof Date) {
-    return DateTimeUtils.formatPeriode(value);
-  }
-  return value;
-},
+    if (value instanceof Date) {
+      return DateTimeUtils.formatPeriode(value);
+    }
+    return value;
+  },
 
   findByKategoriAndPeriode(kategori, periode) {
     return this.getAll().find(b => b.kategori === kategori && b.periode === periode) || null;
