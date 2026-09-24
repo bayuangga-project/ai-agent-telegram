@@ -313,3 +313,127 @@ function forceSyncKnowledgeFromGitHub() {
   var rules = KnowledgeRepository.get('intent', 'rules');
   Logger.log('RULES_PATCHED: ' + (rules && rules.indexOf('soul_query') >= 0 ? 'YES' : 'NO'));
 }
+
+
+function test_DocSync_CollectSourceMetadata() {
+  try {
+    var result = DocSyncSpecialist._collectSourceMetadata();
+    var parsed = JSON.parse(result);
+
+    Logger.log('=== TEST RESULT ===');
+    Logger.log('Type: ' + typeof result);
+    Logger.log('Is Array: ' + Array.isArray(parsed));
+    Logger.log('File Count: ' + parsed.length);
+
+    if (parsed.length > 0) {
+      Logger.log('First File: ' + parsed[0].file);
+      Logger.log('First File LOC: ' + parsed[0].loc);
+      Logger.log('First File Methods: ' + JSON.stringify(parsed[0].methods));
+    }
+
+    Logger.log('=== TEST PASSED ===');
+  } catch (err) {
+    Logger.log('=== TEST FAILED ===');
+    Logger.log('Error: ' + err.message);
+    Logger.log('Stack: ' + err.stack);
+  }
+}
+
+function test_DetectDuplicateGlobalFunctions() {
+  Logger.log('=== DUPLICATE GLOBAL FUNCTION SCAN ===');
+  Logger.log('');
+
+  var files;
+  try {
+    files = GitHubOpsService.readAllSourceFiles();
+  } catch (err) {
+    Logger.log('Gagal membaca source dari GitHub: ' + err.message);
+    return;
+  }
+
+  if (!files) {
+    Logger.log('GitHub source files tidak tersedia.');
+    return;
+  }
+
+  var fileNames = Object.keys(files);
+  var functionMap = {};
+  var totalFunctions = 0;
+
+  for (var i = 0; i < fileNames.length; i++) {
+    var name = fileNames[i];
+    if (name.indexOf('.gs') === -1) continue;
+
+    var fileData = files[name];
+    var content = (fileData && fileData.content) ? fileData.content : '';
+    var lines = content.split('\n');
+
+    for (var j = 0; j < lines.length; j++) {
+      var line = lines[j].trim();
+
+      // Deteksi deklarasi fungsi global: function namaFungsi(...)
+      // Hanya yang berada di level paling luar (tidak diindentasi)
+      var match = lines[j].match(/^function\s+(\w+)\s*\(/);
+      if (match) {
+        var funcName = match[1];
+        totalFunctions++;
+
+        if (!functionMap[funcName]) {
+          functionMap[funcName] = [];
+        }
+        functionMap[funcName].push({
+          file: name,
+          line: j + 1
+        });
+      }
+    }
+  }
+
+  Logger.log('Total file .gs dipindai: ' + fileNames.length);
+  Logger.log('Total fungsi global ditemukan: ' + totalFunctions);
+  Logger.log('');
+
+  var duplicates = [];
+  var uniqueNames = Object.keys(functionMap);
+
+  for (var k = 0; k < uniqueNames.length; k++) {
+    var fn = uniqueNames[k];
+    if (functionMap[fn].length > 1) {
+      duplicates.push({ name: fn, locations: functionMap[fn] });
+    }
+  }
+
+  if (duplicates.length === 0) {
+    Logger.log('✅ TIDAK ADA FUNGSI GLOBAL DUPLIKAT.');
+    Logger.log('Defect 3: RESOLVED');
+  } else {
+    Logger.log('⚠️ DITEMUKAN ' + duplicates.length + ' FUNGSI GLOBAL DUPLIKAT:');
+    Logger.log('');
+    for (var d = 0; d < duplicates.length; d++) {
+      var dup = duplicates[d];
+      Logger.log('--- ' + dup.name + ' ---');
+      for (var l = 0; l < dup.locations.length; l++) {
+        Logger.log('  File: ' + dup.locations[l].file + ' | Baris: ' + dup.locations[l].line);
+      }
+      Logger.log('');
+    }
+  }
+
+  Logger.log('=== SCAN SELESAI ===');
+}
+
+
+function debug_DumpIntentKnowledge() {
+  var schema = KnowledgeRepository.get('intent', 'output_schema');
+  var rules = KnowledgeRepository.get('intent', 'rules');
+  var persona = KnowledgeRepository.get('intent', 'persona');
+
+  Logger.log('=== OUTPUT_SCHEMA ===');
+  Logger.log(schema || '(kosong/tidak ada)');
+  Logger.log('');
+  Logger.log('=== RULES ===');
+  Logger.log(rules || '(kosong/tidak ada)');
+  Logger.log('');
+  Logger.log('=== PERSONA ===');
+  Logger.log(persona || '(kosong/tidak ada)');
+}
