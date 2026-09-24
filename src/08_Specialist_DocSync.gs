@@ -14,7 +14,7 @@ const DocSyncSpecialist = {
       var analysisResult = this._analyzeWithLLM(sourceMetadata, currentDocs, canonicalFiles);
 
       if (!analysisResult || !analysisResult.updates || analysisResult.updates.length === 0) {
-        return { success: true, updated: [], unchanged: canonicalFiles, summary: 'no_changes_detected' };
+        return { success: true, updated: [], unchanged: canonicalFiles, summary: analysisResult && analysisResult.summary ? analysisResult.summary : null };
       }
 
       var updatedFiles = [];
@@ -42,7 +42,7 @@ const DocSyncSpecialist = {
         success: true,
         updated: updatedFiles,
         unchanged: unchanged,
-        summary: analysisResult.summary || 'sync_completed'
+        summary: analysisResult.summary || null
       };
     } catch (err) {
       AppLogger.error('DOCSYNC_ERROR', JSON.stringify({ error: err.message, stack: err.stack }));
@@ -69,17 +69,27 @@ const DocSyncSpecialist = {
 
   _collectSourceMetadata() {
     var files = GitHubOpsService.readAllSourceFiles();
-    if (!files || files.length === 0) return 'no_source_files_found';
+    if (!files) {
+      throw new Error('GitHub source files retrieval returned null or undefined.');
+    }
 
+    var fileNames = Object.keys(files);
     var metadata = [];
-    for (var i = 0; i < files.length; i++) {
-      var f = files[i];
-      var name = f.name || f.path || 'unknown';
-      var content = f.content || '';
+
+    for (var i = 0; i < fileNames.length; i++) {
+      var name = fileNames[i];
+      var fileData = files[name];
+      var content = (fileData && fileData.content) ? fileData.content : '';
       var loc = content.split('\n').length;
       var methods = this._extractMethodSignatures(content);
-      metadata.push({ file: name, loc: loc, methods: methods });
+
+      metadata.push({
+        file: name,
+        loc: loc,
+        methods: methods
+      });
     }
+
     return JSON.stringify(metadata, null, 2);
   },
 
