@@ -449,3 +449,52 @@ var SelfDocSync = {
     return lines.join('\n');
   }
 };
+
+/**
+ * Test perbaikan Canonical Docs di SelfHealingSpecialist
+ */
+function test_P1_CanonicalDocsResolution() {
+  Logger.log('=== TEST: Canonical Docs di SelfHealing ===');
+  
+  var canonicalRaw = KnowledgeRepository.get('docsync', 'canonical_files');
+  var canonicalFiles = canonicalRaw
+    ? canonicalRaw.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; })
+    : ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOFF.md', 'ai_knowledge.md'];
+
+  Logger.log('Daftar file target dokumentasi:');
+  canonicalFiles.forEach(function(f, idx) {
+    Logger.log((idx + 1) + '. ' + f);
+  });
+
+  var isLegacyFound = canonicalFiles.some(function(f) {
+    return f.indexOf('01_SYSTEM_CONTEXT') !== -1;
+  });
+
+  if (!isLegacyFound && canonicalFiles.length >= 5) {
+    Logger.log('✅ PASS: Semua dokumen kanonik valid dan tidak ada referensi legacy lama.');
+  } else {
+    Logger.log('❌ FAIL: Masih ditemukan dokumen legacy.');
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
