@@ -38,5 +38,10 @@ const DateTimeUtils = {
   formatPeriode(date) {
     var d = this.toWIB(date);
     return Utilities.formatDate(d, this.TIMEZONE, 'yyyy-MM');
+  },
+
+  formatTanggal(date) {
+    var d = this.toWIB(date);
+    return Utilities.formatDate(d, this.TIMEZONE, 'yyyy-MM-dd');
   }
 };
