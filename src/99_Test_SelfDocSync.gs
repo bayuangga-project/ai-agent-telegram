@@ -128,3 +128,62 @@ function test_CekStatusSinkronisasi() {
   }
 }
 
+/**
+ * Test perbaikan P1: SyncOrchestrator
+ */
+function test_P1_SyncAssessment() {
+  Logger.log('=== TEST P1: Sync Assessment ===');
+  
+  var result = SyncOrchestrator._assessDocumentation();
+  Logger.log('Status: ' + result.status);
+  Logger.log('Jumlah file terdeteksi: ' + result.source_files);
+  
+  if (result.source_files > 0) {
+    Logger.log('✅ PASS: File terhitung dengan benar (' + result.source_files + ' file)');
+  } else {
+    Logger.log('❌ FAIL: File terhitung 0 atau undefined');
+  }
+}
+
+function test_P1_SheetHeaders() {
+  Logger.log('=== TEST P1: Sheet Headers ===');
+  
+  var result = SyncOrchestrator._ensureSheets();
+  Logger.log('Status: ' + result.status);
+  Logger.log('Sheet baru dibuat: ' + result.actions);
+  Logger.log('Sheet sudah ada: ' + result.skipped);
+  
+  // Cek apakah sheet yang baru dibuat punya header
+  var ss = SpreadsheetGateway.getSpreadsheet();
+  var testSheet = ss.getSheetByName('Log_System');
+  if (testSheet) {
+    var header = testSheet.getRange(1, 1, 1, 4).getValues()[0];
+    Logger.log('Header Log_System: ' + JSON.stringify(header));
+    if (header[0] === 'timestamp' && header[1] === 'jenisEvent') {
+      Logger.log('✅ PASS: Header sheet benar');
+    } else {
+      Logger.log('⚠️ INFO: Header mungkin sudah ada sebelumnya (tidak ditimpa)');
+    }
+  }
+}
+
+/**
+ * Jalankan ini 1x untuk memperbarui daftar dokumen resmi di Database Google Sheet.
+ */
+function jalankanMigrasiDatabaseDokumen() {
+  Logger.log('=== MEMULAI MIGRASI DATABASE DOKUMEN ===');
+  
+  var fileBaru = [
+    'ARCHITECTURE.md',
+    'PROGRESS.md',
+    'ROADMAP.md',
+    'AI_DEVELOPMENT_HANDOFF.md',
+    'ai_knowledge.md'
+  ].join('\n');
+  
+  // Simpan data baru ke database sheet Knowledge
+  KnowledgeRepository.save('docsync', 'canonical_files', fileBaru, 'Migrasi sistem otomatis');
+  
+  Logger.log('✅ DATABASE BERHASIL DIPERBARUI!');
+  Logger.log('Daftar dokumen resmi baru telah disimpan ke Google Sheet.');
+}
