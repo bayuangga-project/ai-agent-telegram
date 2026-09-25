@@ -27,3 +27,27 @@ function setupDailyAutoSyncTrigger() {
     .create();
   AppLogger.info('TRIGGER_SETUP_SUCCESS', 'runDailyAutoSync');
 }
+
+function runDailySelfDocCheck() {
+  try {
+    AppLogger.info('TRIGGER_SELF_DOC_START', 'daily_10:00');
+    SelfDocSync.runDailyCheck();
+    AppLogger.info('TRIGGER_SELF_DOC_END', 'done');
+  } catch (err) {
+    AppLogger.error('TRIGGER_SELF_DOC_FAIL', err.message);
+  }
+}
+
+function setupDailySelfDocTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === 'runDailySelfDocCheck') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger('runDailySelfDocCheck')
+    .timeBased()
+    .atHour(10)
+    .everyDays(1)
+    .create();
+  AppLogger.info('TRIGGER_SETUP_SUCCESS', 'runDailySelfDocCheck at 10:00');
+}
