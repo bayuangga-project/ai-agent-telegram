@@ -1,6 +1,14 @@
 const Manager = {
   processConversationalMessage(chatId, text) {
     try {
+      var pendingDraft = SelfDocSync.getPendingDraft();
+      if (pendingDraft) {
+        var approvalAction = SelfDocSync.parseApproval(text);
+        if (approvalAction) {
+          return this._handleSyncApproval(chatId, text, approvalAction);
+        }
+      }
+
       if (CommandRouter.isKnownCommand(text)) {
         return CommandRouter.handle(chatId, text);
       }
@@ -88,6 +96,58 @@ const Manager = {
       return this._handleSoulMemoryQuery(chatId, text, intent);
 
     return this._handleChatBiasa(chatId, text, intent, context.riwayat);
+  },
+
+  _handleSyncApproval(chatId, text, action) {
+    ChatHistoryRepository.save(chatId, 'user', text);
+
+    if (action === 'approve') {
+      var result = SelfDocSync.approveDraft();
+      var msg = result.success
+        ? '✅ Dokumentasi berhasil diterbitkan ke GitHub.'
+        : '⚠️ Gagal menerbitkan: ' + (result.reason || 'unknown');
+      ChatHistoryRepository.save(chatId, 'ai', msg);
+      return msg;
+    }
+
+    if (action === 'reject') {
+      SelfDocSync.rejectDraft();
+      var msgReject = '❌ Draft dokumentasi dibatalkan.';
+      ChatHistoryRepository.save(chatId, 'ai', msgReject);
+      return msgReject;
+    }
+
+    if (action === 'detail') {
+      var draft = SelfDocSync.getDraftDetail();
+      if (!draft) {
+        var msgNoDraft = 'Tidak ada draft yang tertunda.';
+        ChatHistoryRepository.save(chatId, 'ai', msgNoDraft);
+        return msgNoDraft;
+      }
+
+      var parts = [];
+      for (var i = 0; i < draft.files.length; i++) {
+        var f = draft.files[i];
+        var chunk = '📄 *' + f.fileName + '*\n' +
+          (f.reason ? 'Alasan: ' + f.reason + '\n' : '') +
+          'Panjang: ' + f.content.length + ' karakter';
+        parts.push(chunk);
+      }
+
+      var detailMsg = '📋 *Detail Draft (' + draft.files.length + ' file):*\n\n' +
+        parts.join('\n\n') +
+        '\n\nTerdeteksi: ' + (draft.detectedAt || '-') +
+        '\n\nReply *ya* untuk terbitkan, *batal* untuk batalkan.';
+
+      if (detailMsg.length > 3800) {
+        detailMsg = detailMsg.substring(0, 3797) + '...';
+      }
+
+      ChatHistoryRepository.save(chatId, 'ai', detailMsg);
+      return detailMsg;
+    }
+
+    return null;
   },
 
   _askLLMWithKnowledge(chatId, userText, namespace, key, rawData) {
@@ -399,7 +459,6 @@ const Manager = {
   _handleImplementFeature(chatId, text, intent) {
     var idea = (intent.implement_feature && intent.implement_feature.idea) || text;
     
-    // Evaluasi apakah pengguna meminta implementasi atau membuat blueprint
     var isConfirmImplement = text.toLowerCase().indexOf('implement') >= 0 || text.toLowerCase().indexOf('terapkan') >= 0;
     var result;
 
@@ -422,7 +481,6 @@ const Manager = {
     var focus = (intent.self_query && intent.self_query.focus) || 'all';
     var result = SelfAwareness.review(focus);
 
-    // Kirim data mentah hasil introspeksi ke LLM untuk diformat secara natural
     return this._askLLMWithKnowledge(chatId, text, 'selfaware', 'review_response', result);
   },
 
