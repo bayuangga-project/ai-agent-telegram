@@ -73,7 +73,11 @@ const SelfHealingSpecialist = {
   updateDocumentation(instruction) {
     AppLogger.info('SELF_HEAL_DOC_UPDATE', instruction);
 
-    var canonicalFiles = ['01_SYSTEM_CONTEXT_AND_AI_HANDOFF.md', '02_ARCHITECTURE_AND_FLOWS.md', '03_IMPLEMENTATION_AND_CODE_REFERENCE.md', '04_OPERATIONS_TESTING_SECURITY_DEVELOPMENT.md', '05_ROADMAP_PROGRESS_AND_TECHNICAL_DEBT.md'];
+    var canonicalRaw = KnowledgeRepository.get('docsync', 'canonical_files');
+    var canonicalFiles = canonicalRaw
+      ? canonicalRaw.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; })
+      : ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOFF.md', 'ai_knowledge.md'];
+
     var currentDocs = {};
 
     for (var i = 0; i < canonicalFiles.length; i++) {
