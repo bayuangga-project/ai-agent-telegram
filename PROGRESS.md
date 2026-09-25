@@ -112,3 +112,16 @@ Tambahan di `99_Tests.gs` mencakup finance specialist, OAuth scope debug, GitHub
 - Perubahan `appsscript.json` ikut dipertimbangkan dalam change detection.
 - Test finance diperbaiki agar memanggil API yang benar.
 - LTM helper tanggal diperbaiki.
+
+### Sesi 24 September 2026 — Perbaikan P0 & Implementasi SelfDocSync
+
+- **P0 Fixed**: Menambahkan `DateTimeUtils.formatTanggal(date)` pada `02_Utils.gs` untuk mengatasi kegagalan format tanggal pada `08_Specialist_Memory.gs` dan trigger nightly summarizer.
+- **Extended**: `04_Repository_Documentation.gs` dengan method `getAllWithMeta()`, `upsert()`, dan `ensureHeaders()` untuk mendukung metadata SHA dan waktu sinkronisasi dokumen tanpa membuat sheet baru.
+- **New Feature**: `08_Specialist_SelfDocSync.gs` yang memiliki kapabilitas:
+  - Introspeksi struktur kode sumber (.gs) dari GitHub repository (mengenali object, method, parameter, dan relasi dependensi antar modul).
+  - Deteksi perbedaan struktural (structural diff) antar versi kode.
+  - Integrasi draft otomatis dokumentasi kanonik dengan LLM.
+  - Interaksi persetujuan user via Telegram (Approval flow: "ya" -> push, "batal" -> discard, "detail" -> preview).
+  - Mekanisme notifikasi dan follow-up reminder tanpa spam.
+- **Trigger**: Menambahkan `runDailySelfDocCheck` dan penjadwalan `setupDailySelfDocTrigger` harian pukul 10:00 WIB di `11_Trigger_ScheduledSync.gs`.
+- **Zero Sheet Overhead**: Menggunakan entri `Knowledge` (namespace `code` dan `sync`) serta sheet `Documentation` yang sudah ada tanpa menambah sheet database baru.
