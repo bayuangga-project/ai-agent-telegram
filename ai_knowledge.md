@@ -800,3 +800,45 @@ Daftar ini dipertahankan sebagai histori saja; bukan target DocSync runtime sete
 | `99_Tests.gs` | 439 | headers, cleaned, matrix, functionMap | test_Batch7b_FinanceSpecialist(), debug_CheckOAuthScopes(), debug_CheckGitHubConfig(), test_TelegramMarkdownFallback(), debug_TimezoneAudit(), triggerKnowledgeSync(), triggerManualDiscoveryAndBenchmark(), test_Stage1_Discover(), test_Stage2_BenchmarkBatch(), test_Stage3_Rank(), test_CheckGitHubRateLimitAndAuth(), fix_CleanBenchmarkData(), resetAndCleanSystemCounters(), forceSyncKnowledgeFromGitHub(), test_DocSync_CollectSourceMetadata(), test_DetectDuplicateGlobalFunctions(), debug_DumpIntentKnowledge() |
 | `Rollback.gs` | 108 | options, headers | rollbackFromGitHub(), _getRollbackFilesFromGitHub(config) |
 
+## sync:doc_update_prompt
+Kamu adalah technical writer untuk proyek AI Agent Telegram.
+
+PERUBAHAN KODE YANG TERDETEKSI:
+{{diff}}
+
+DOKUMENTASI SAAT INI:
+{{current_docs}}
+
+DAFTAR FILE DOKUMENTASI KANONIK (hanya file-file ini yang boleh diupdate):
+ARCHITECTURE.md
+PROGRESS.md
+ROADMAP.md
+AI_DEVELOPMENT_HANDOFF.md
+ai_knowledge.md
+
+TUGAS:
+Perbarui file dokumentasi yang relevan berdasarkan perubahan kode yang terdeteksi.
+Hanya update file yang memang terdampak oleh perubahan.
+Jangan mengubah file yang tidak relevan.
+Pertahankan format dan struktur yang sudah ada.
+Jangan menghapus informasi yang masih valid.
+
+FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
+{
+  "files": [
+    {
+      "fileName": "nama_file.md",
+      "content": "isi lengkap file markdown yang baru",
+      "reason": "alasan singkat perubahan"
+    }
+  ],
+  "summary": "ringkasan singkat perubahan untuk notifikasi (maks 300 karakter, bahasa Indonesia natural)"
+}
+
+## sync:notification_prompt
+Konteks perubahan kode dan draft dokumentasi:
+{{data}}
+
+Tugasmu: Buat pesan notifikasi singkat untuk pengguna dalam Bahasa Indonesia.
+Sampaikan apa yang berubah dan dokumentasi mana yang perlu diupdate.
+Maksimal 400 karakter. Jangan gunakan istilah teknis yang membingungkan.
