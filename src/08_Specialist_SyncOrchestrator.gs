@@ -88,7 +88,8 @@ const SyncOrchestrator = {
   _assessDocumentation() {
     try {
       var files = GitHubOpsService.readAllSourceFiles();
-      return { status: 'available', source_files: files ? files.length : 0 };
+      if (!files) return { status: 'available', source_files: 0 };
+      return { status: 'available', source_files: Object.keys(files).length };
     } catch (e) {
       return { status: 'error', reason: e.message };
     }
@@ -162,24 +163,43 @@ const SyncOrchestrator = {
 
   _ensureSheets() {
     try {
-      var required = [
-        'Chat_History', 'Memory_Facts', 'User_Profile', 'Memory_Summaries',
-        'Reminder_RawData', 'Reminder_AckPatterns',
-        'Finance_Wallets', 'Finance_Transactions', 'Finance_Budgets',
-        'Log_System', 'Audit_Reports', 'Audit_Findings',
-        'Code_Snapshots', 'Roadmap_Items', 'Documentation',
-        'Self_Reviews', 'SelfHeal_Patches',
-        'AI_Knowledge', 'Soul_Episodic_Memory', 'Soul_Meta_Memory', 'Soul_User_Patterns'
-      ];
+      var sheetHeaders = {
+        'Chat_History': ['id', 'timestamp', 'chatId', 'role', 'text'],
+        'Memory_Facts': ['id', 'timestamp', 'chatId', 'category', 'fact', 'status'],
+        'User_Profile': ['key', 'value', 'category', 'confidence', 'lastUpdated'],
+        'Memory_Summaries': ['id', 'date', 'summary', 'topics', 'messageCount'],
+        'Reminder_RawData': ['ID', 'TIMESTAMP', 'DESKRIPSI', 'WAKTU', 'STATUS', 'PRIORITAS', 'TERAKHIR_DIINGATKAN', 'CATATAN', 'JENIS_RECURRING', 'RECURRING_CONFIG', 'JUMLAH_DIINGATKAN'],
+        'Reminder_AckPatterns': ['id', 'timestamp', 'pesanUser', 'interpretasi', 'aksi'],
+        'Finance_Wallets': ['id', 'nama', 'saldoAwal', 'createdAt'],
+        'Finance_Transactions': ['id', 'timestamp', 'walletId', 'tanggalTransaksi', 'tipe', 'kategori', 'jumlah', 'deskripsi', 'status'],
+        'Finance_Budgets': ['id', 'kategori', 'batasJumlah', 'periode', 'createdAt'],
+        'Log_System': ['timestamp', 'jenisEvent', 'detail', 'status'],
+        'Knowledge': ['id', 'namespace', 'key', 'content', 'version', 'active', 'updated_at', 'notes'],
+        'Documentation': ['fileName', 'content', 'sha', 'lastSyncedAt', 'fileType'],
+        'SelfHeal_Patches': ['id', 'timestamp', 'fileName', 'diagnosis', 'patchedCode', 'status'],
+        'Audit_Reports': ['id', 'timestamp', 'type', 'findingsCount', 'status'],
+        'Audit_Findings': ['id', 'reportId', 'file', 'line', 'severity', 'description', 'status'],
+        'Code_Snapshots': ['id', 'timestamp', 'fileName', 'hash', 'status'],
+        'Roadmap_Items': ['feature', 'category', 'priority', 'status', 'notes'],
+        'Self_Reviews': ['id', 'timestamp', 'focus', 'score', 'summary'],
+        'Soul_Episodic_Memory': ['id', 'timestamp', 'eventType', 'context', 'outcome', 'emotionalState', 'details'],
+        'Soul_Meta_Memory': ['id', 'timestamp', 'insight', 'source', 'confidence'],
+        'Soul_User_Patterns': ['id', 'timestamp', 'pattern', 'frequency', 'lastSeen'],
+        'AI_Knowledge': ['id', 'namespace', 'key', 'content', 'version', 'active', 'updated_at', 'notes']
+      };
+
+      var required = Object.keys(sheetHeaders);
       var ss = SpreadsheetGateway.getSpreadsheet();
       var existing = ss.getSheets().map(function(s) { return s.getName(); });
       var created = 0;
       var skipped = 0;
+
       for (var i = 0; i < required.length; i++) {
-        if (existing.indexOf(required[i]) >= 0) {
+        var name = required[i];
+        if (existing.indexOf(name) >= 0) {
           skipped++;
         } else {
-          SpreadsheetGateway.ensureSheet(required[i], null);
+          SpreadsheetGateway.ensureSheet(name, sheetHeaders[name]);
           created++;
         }
       }
