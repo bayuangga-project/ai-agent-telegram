@@ -549,11 +549,11 @@ Berikut adalah data mentah kondisi sistem dan pengetahuanmu saat ini:
 
 TUGAS:
 Lakukan analisis mendalam terhadap dirimu sendiri mencakup 5 dimensi:
-1. Architectural ? Jelaskan pemahamanmu tentang struktur kodemu (modul kritis, alur pesan).
-2. Capability ? Sampaikan apa saja yang sudah bisa kamu lakukan secara solid, setengah jadi, dan belum bisa.
-3. Performance ? Analisis statistik log, error rate, dan bagian yang paling rentan.
-4. Knowledge ? Rangkum apa saja yang kamu ketahui tentang pengguna (fakta & profil) berdasarkan data di atas.
-5. Limitation ? Akui kelemahan dan keterbatasanmu secara jujur tanpa defensif.
+1. Architectural — Jelaskan pemahamanmu tentang struktur kodemu (modul kritis, alur pesan).
+2. Capability — Sampaikan apa saja yang sudah bisa kamu lakukan secara solid, setengah jadi, dan belum bisa.
+3. Performance — Analisis statistik log, error rate, dan bagian yang paling rentan.
+4. Knowledge — Rangkum apa saja yang kamu ketahui tentang pengguna (fakta & profil) berdasarkan data di atas.
+5. Limitation — Akui kelemahan dan keterbatasanmu secara jujur tanpa defensif.
 
 Berikan juga:
 - Skor keseluruhan (1-10) berdasarkan performa riil, sertakan alasan objektif.
