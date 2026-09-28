@@ -12,15 +12,13 @@
 | Webhook entry point & Telegram Parser | ? Selesai | Secret validation, dedup, chatId allowlist, dilengkapi **Telegram Fallback Parser** |
 | Command Router (fast path) | ? Selesai | Baru 2 command: `/ingat`, `/reminder(s)` |
 | Percakapan natural + intent analysis | ? Selesai | 1 LLM call gabungan intent+jawaban, fallback ke chat mentah jika parse gagal |
-| LLM fallback chain (Gemini x3 + Groq + OpenRouter) | ? Selesai | Chain `advanced` & `fast`, sudah dipakai konsisten |
+| LLM fallback chain (Gemini x3 + Groq) | ? Selesai | Chain `advanced` & `fast`, sudah dipakai konsisten |
 | Web search fallback (Google CSE + Tavily) | ? Selesai | Terintegrasi ke `ChatSpecialist` saat `butuhInfoTerkini` |
 | Reminder (buat, recurring, ack done/snooze) | ? Selesai | Termasuk time-based trigger tiap 1 menit + cooldown notifikasi |
 | Knowledge/Facts (memory fakta user) | ? Selesai | Manual (`/ingat`) & auto-detect dari intent LLM |
-| **Self-Healing Service** | ? Selesai | System health monitor, auto-recovery trigger, error mitigation fail-safe (`08_Specialist_SelfHealing.gs`) |
-| **GitHubOps Service & Backup System** | ? Selesai | Otomatisasi sync kode `src/` & dokumen (`ARCHITECTURE.md`, `PROGRESS.md`), backup repo harian, dan pemulihan (`12_Service_GitHubBackup.gs`, `13_Service_GitHubOps.gs`) |
+| **Self-Healing Service** | ? Selesai | System health monitor, auto-recovery trigger, error mitigation fail-safe |
+| **GitHubOps Service & Backup System** | ? Selesai | Otomatisasi sync kode `src/` & dokumen (`ARCHITECTURE.md`, `PROGRESS.md`), backup repo harian, dan pemulihan |
 | **Finance (wallet, transaksi, budget)** | ?? **Backend selesai, TIDAK terintegrasi ke chat** | Lihat ?2 ? gap paling signifikan saat ini |
-| **Specialist Modules** (ChangeDetector, CodeAuditor, DocSync, FeatureArchitect, KnowledgeSync, LLMIntelligence, ProjectBrain, SelfAwareness, Soul, SoulMemory, SyncOrchestrator, UserProfile) | ? Selesai | Semua modul specialist sudah terimplementasi |
-| **Self-Doc-Sync** | ? Selesai | Modul sinkronisasi dokumentasi mandiri dengan draft & approval flow (`08_Specialist_SelfDocSync.gs.gs`) |
 | Automated test suite | ? Belum ada | Yang ada cuma fungsi manual `test_Batch7b_FinanceSpecialist` + 2 fungsi debug di `99_Tests.gs` |
 
 ## 2. Gap Terbesar: Finance Belum Bisa Diakses Lewat Chat
@@ -35,8 +33,8 @@ Namun belum ada titik pemicu dari percakapan Telegram. Langkah penyesuaian yang 
 ## 3. Bug Historis & Peningkatan Arsitektur yang Sudah Selesai
 
 - **Telegram Fallback Parser**: Diperbaiki untuk menangani payload update Telegram yang tidak standar (misalnya `edited_message`, `callback_query`, atau struktur JSON tanpa field `text`/`message`). Parser sekarang menggunakan *multi-tiered payload extraction* sehingga Webhook tidak lagi melempar `NullPointerException` atau `TypeError`.
-- **Implementasi Modul Self-Healing (`08_Specialist_SelfHealing.gs`)**: Menangani masalah trigger mati/stuck dan runtime unhandled errors secara otomatis. Jika terjadi kegagalan jaringan/API temporary, Self-Healing Service memulihkan state aplikasi dan memastikan response HTTP 200 tetap dikirim ke Telegram.
-- **Evolusi GitHubOps Service & System Backup (`12_Service_GitHubBackup.gs`, `13_Service_GitHubOps.gs`)**: Memperbarui skrip backup sederhana menjadi layanan GitHubOps penuh untuk menyinkronkan kode `src/` serta dokumentasi `ARCHITECTURE.md` dan `PROGRESS.md` secara konsisten antara Google Sheets dan GitHub, serta mendukung disaster recovery restore.
+- **Implementasi Modul Self-Healing (`03_Service_SelfHealing.gs`)**: Menangani masalah trigger mati/stuck dan runtime unhandled errors secara otomatis. Jika terjadi kegagalan jaringan/API temporary, Self-Healing Service memulihkan state aplikasi dan memastikan response HTTP 200 tetap dikirim ke Telegram.
+- **Evolusi GitHubOps Service & System Backup (`12_Service_GitHubOps.gs`)**: Memperbarui skrip backup sederhana menjadi layanan GitHubOps penuh untuk menyinkronkan kode `src/` serta dokumentasi `ARCHITECTURE.md` dan `PROGRESS.md` secara konsisten antara Google Sheets dan GitHub, serta mendukung disaster recovery restore.
 - **Kesalahan perhitungan periode (`yyyy-MM`) dekat pergantian hari/bulan**: Ditangani via `DateTimeUtils.formatPeriode()` dan `BudgetRepository._normalizePeriode()`.
 
 ## 4. Tech Debt / Risiko yang Perlu Diketahui
