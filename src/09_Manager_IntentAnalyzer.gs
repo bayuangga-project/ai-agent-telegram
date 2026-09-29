@@ -1,9 +1,16 @@
+/**
+ * ===================================================================
+ * SERVICE: INTENT ANALYZER (UNIFIED PERSONA & FORMATTER)
+ * Tanggung jawab: Mengubah pesan pengguna menjadi struktur intent/params
+ * dan menyediakan fungsi pembantu format konteks.
+ * ===================================================================
+ */
 const IntentAnalyzer = {
   NAMESPACE: 'intent',
 
   analyze(userMessage, context) {
     var prompt = this._buildPrompt(userMessage, context);
-    var result = LLMProviderService.generateFromSinglePrompt(prompt, 0.7, 'intent_analysis');
+    var result = LLMProviderService.generateFromSinglePrompt(prompt, 0.3, 'intent_analysis');
     if (!result) {
       AppLogger.error('INTENT_ANALYZER_ALL_PROVIDERS_FAILED', 'all_providers_failed');
       return null;
@@ -14,14 +21,12 @@ const IntentAnalyzer = {
   _parseResponse(rawText, providerName) {
     var cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
-    // Percobaan 1: Parse langsung
     try {
       var parsed = JSON.parse(cleaned);
       AppLogger.info('INTENT_ANALYZER_SUCCESS',
         'provider:' + providerName + '|complexity:' + (parsed.complexity || 'light'));
       return parsed;
     } catch (err) {
-      // Percobaan 2: Auto-repair JSON rusak (koma trailing, koma sebelum })
       try {
         var repaired = cleaned
           .replace(/,\s*}/g, '}')
@@ -48,9 +53,10 @@ const IntentAnalyzer = {
     }
 
     var nowStr = DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB());
+    var persona = KnowledgeRepository.get('soul', 'system_persona') || knowledge['persona'] || '';
 
     var variables = {
-      persona: knowledge['persona'] || '',
+      persona: persona,
       now: nowStr,
       riwayat: this._formatRiwayat(context.riwayat),
       fakta: this._formatList(context.facts),
