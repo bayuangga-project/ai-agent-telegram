@@ -168,8 +168,13 @@ const Manager = {
     }
   },
 
+    /**
+   * PENTING: Menggunakan ChatSpecialist.buildSystemPersona() 
+   * agar variabel {{name}} dan aturan identitas di-render 100% presisi!
+   */
   _buildPlanningPrompt(userText, context, observations) {
-    var persona = KnowledgeRepository.get('soul', 'system_persona') || KnowledgeRepository.get('intent', 'persona') || '';
+    // 1. Panggil persona yang SUDAH DI-RENDER dinamis oleh ChatSpecialist
+    var persona = ChatSpecialist.buildSystemPersona();
     var toolsRegistry = KnowledgeRepository.get('tools', 'registry') || '[]';
     var template = KnowledgeRepository.get('agent', 'planning_prompt');
 
