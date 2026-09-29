@@ -1,30 +1,56 @@
 /**
  * ===================================================================
- * COMMAND ROUTER
- * Menangani perintah eksplisit dari Telegram yang diawali slash (/).
+ * COMMAND ROUTER (WITH BOT USERNAME SANITIZER & MULTI-SPACE CLEANER)
+ * Tanggung jawab: Menangani perintah eksplisit Telegram (/command).
+ * Membuang suffix @botusername otomatis dan menormalisasi spasi.
  * ===================================================================
  */
 const CommandRouter = {
   
+  /**
+   * Sanitasi Perintah: Membuang spasi awal & suffix @botusername dari Telegram
+   */
+  _cleanCommand(text) {
+    if (!text) return '';
+    var trimmed = text.trim();
+    if (trimmed.charAt(0) !== '/') return '';
+    
+    // Split berdasarkan spasi pertama
+    var firstWord = trimmed.split(/\s+/)[0].toLowerCase();
+    // Buang suffix @botusername jika ada (misal: /llm@dyarassistant_bot -> /llm)
+    return firstWord.split('@')[0];
+  },
+
   isKnownCommand(text) {
-    if (!text || text.charAt(0) !== '/') return false;
-    var cmd = text.split(' ')[0].toLowerCase();
-    return ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory', '/export_ns', '/help', '/bantuan'].indexOf(cmd) !== -1;
+    var cmd = this._cleanCommand(text);
+    if (!cmd) return false;
+    var knownList = ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory', '/export_ns', '/help', '/bantuan', '/llm'];
+    return knownList.indexOf(cmd) !== -1;
   },
 
   handle(chatId, text) {
-    var parts = text.split(' ');
-    var cmd = parts[0].toLowerCase();
+    if (!text) return 'Pesan kosong.';
+    
+    // Normalisasi spasi & pisahkan perintah dari argumen
+    var cleanedText = text.trim();
+    var parts = cleanedText.split(/\s+/);
+    var rawCmd = parts[0].toLowerCase();
+    var cmd = rawCmd.split('@')[0]; // Sanitasi suffix @botusername
+    
     var args = parts.slice(1).join(' ').trim();
     
-    AppLogger.info('COMMAND_ROUTER', 'cmd:' + cmd);
+    AppLogger.info('COMMAND_ROUTER', 'cmd:' + cmd + '|args:' + args);
+
+    if (cmd === '/llm') {
+      return LLMIntelligence.handleCommand(parts[1] ? parts[1].toLowerCase() : 'list', parts[2], parts[3]);
+    }
 
     if (cmd === '/ingat') {
       return this._handleIngat(chatId, args);
     }
     
     if (cmd === '/export_ns') {
-      return KnowledgeSyncSpecialist.handleCommand(parts[1], parts[2], parts[3]);
+      return KnowledgeSyncSpecialist.handleCommand(parts[1] ? parts[1].toLowerCase() : 'list', parts[2], parts[3]);
     }
     
     if (cmd === '/help' || cmd === '/bantuan') {
@@ -74,9 +100,6 @@ const CommandRouter = {
     return '❌ Gagal menyimpan fakta. Teks kosong.';
   },
 
-  /**
-   * Mengambil Nama AI secara dinamis dari Soul / UserProfile
-   */
   _getAIName() {
     var aiName = '';
     try {
@@ -101,31 +124,26 @@ const CommandRouter = {
     return aiName || 'AI Agent';
   },
 
-  /**
-   * Menampilkan Bantuan Command dengan Render Nama Dinamis {{name}}
-   */
   _handleHelp() {
     var aiName = this._getAIName();
 
     var defaultHelpTemplate = '📚 *Pusat Bantuan Command ({{name}})*\n\n' +
       'Berikut daftar perintah yang bisa lo pakai secara langsung:\n\n' +
+      '🤖 *Manajemen Model AI (LLM)*\n' +
+      '🔹 `/llm` - Lihat katalog model AI di sheet LLM_Models.\n' +
+      '🔹 `/llm discover` - Auto-discovery model gratisan terbaru dari internet.\n' +
+      '🔹 `/llm bench` - Uji tingkat kecerdasan model secara otomatis.\n\n' +
       '🔧 *Sistem & Dokumentasi*\n' +
       '🔹 `/export_ns` - Atur namespace apa saja yang di-export ke GitHub.\n' +
-      '     _(Contoh: `/export_ns list`, `/export_ns add [nama]`)_\n' +
       '🔹 `/diagnose` - Cek dan perbaiki error log terbaru.\n' +
       '🔹 `/logs` - Lihat 10 log aktivitas terakhir sistem.\n' +
       '🔹 `/patch [id]` - Terapkan perbaikan kode dari GitHub.\n\n' +
       '🧠 *Memori & Pengetahuan*\n' +
       '🔹 `/ingat [fakta]` - Simpan fakta penting permanen.\n' +
       '🔹 `/memory` - Lihat ringkasan memori jangka panjang (7 hari terakhir).\n\n' +
-      '🤖 *Jiwa & Kepribadian*\n' +
-      '🔹 `/soul` - Cek status profil kepribadian dan versi {{name}}.\n' +
-      '🔹 `/init-soul` - Reset/Inisialisasi ulang identitas {{name}}.\n\n' +
-      '💡 _Semua aksi lain seperti catat keuangan atau tambah fitur, bisa langsung di-chat biasa pakai bahasa natural aja!_';
+      '💡 _Semua aksi lain seperti catat keuangan atau percakapan biasa, tinggal di-chat aja!_';
 
-    // Selalu paksa pembaruan template bantuan agar menggunakan tag {{name}} dinamis
     KnowledgeRepository.save('help', 'command_list', defaultHelpTemplate, 'DYNAMIC_NAME_HELP');
-
     return TemplateEngine.render(defaultHelpTemplate, { name: aiName });
   }
 };
