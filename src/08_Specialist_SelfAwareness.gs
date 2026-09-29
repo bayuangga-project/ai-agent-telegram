@@ -30,7 +30,7 @@ const SelfAwareness = {
         'fix_audit', 'check_changes', 'roadmap_query', 'implement_feature',
         'self_query', 'soul_query', 'soul_init', 'soul_memory_query'
       ],
-      commandList: ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory', '/sync'],
+      commandList: ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory'],
       errorLogs: [],
       logStats: { total: 0, errors: 0, errorRatePercent: 0 },
       userKnowledge: { facts: [], profile: [] },
@@ -38,7 +38,6 @@ const SelfAwareness = {
       previousReview: null
     };
 
-    // 1. Ambil daftar file dari GitHub
     try {
       var files = GitHubOpsService.listDirectory('src');
       if (Array.isArray(files)) {
@@ -46,13 +45,11 @@ const SelfAwareness = {
       }
     } catch (e) {}
 
-    // 2. Ambil daftar Sheet
     try {
       var ss = SpreadsheetGateway.getSpreadsheet();
       data.sheetList = ss.getSheets().map(function(s) { return s.getName(); });
     } catch (e) {}
 
-    // 3. Ambil log error terakhir (10 log)
     try {
       var sheet = SpreadsheetGateway.getSheet('Log_System');
       var logData = sheet.getDataRange().getValues();
@@ -86,13 +83,11 @@ const SelfAwareness = {
       }
     } catch (e) {}
 
-    // 4. Ambil data user
     try {
       data.userKnowledge.facts = KnowledgeSpecialist.getActiveFactsForPrompt(10) || [];
       data.userKnowledge.profile = UserProfileSpecialist.getProfileForPrompt(10) || [];
     } catch (e) {}
 
-    // 5. Ambil data roadmap
     try {
       var rSheet = SpreadsheetGateway.getSheet('Roadmap_Items');
       var rData = rSheet.getDataRange().getValues();
@@ -110,7 +105,6 @@ const SelfAwareness = {
       }
     } catch (e) {}
 
-    // 6. Ambil review sebelumnya
     try {
       var sSheet = SpreadsheetGateway.getSheet('Self_Reviews');
       var sData = sSheet.getDataRange().getValues();
