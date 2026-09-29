@@ -22,7 +22,8 @@ const KnowledgeRepository = {
     var rows = this._getAllRows();
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      if (r[1] === namespace && r[2] === key && (r[5] === true || r[5] === 'TRUE')) {
+      var isActive = r[5] === true || String(r[5]).toUpperCase() === 'TRUE';
+      if (r[1] === namespace && r[2] === key && isActive) {
         return r[3];
       }
     }
@@ -34,7 +35,8 @@ const KnowledgeRepository = {
     var result = {};
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      if (r[1] === namespace && (r[5] === true || r[5] === 'TRUE')) {
+      var isActive = r[5] === true || String(r[5]).toUpperCase() === 'TRUE';
+      if (r[1] === namespace && isActive) {
         result[r[2]] = r[3];
       }
     }
@@ -69,10 +71,11 @@ const KnowledgeRepository = {
 
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
+      var isActive = r[5] === true || String(r[5]).toUpperCase() === 'TRUE';
       if (r[1] === namespace && r[2] === key) {
         var v = Number(r[4]) || 0;
         if (v > maxVersion) maxVersion = v;
-        if (r[5] === true || r[5] === 'TRUE') activeRowIndex = i + 2;
+        if (isActive) activeRowIndex = i + 2;
       }
     }
 
@@ -92,9 +95,58 @@ const KnowledgeRepository = {
     var rows = this._getAllRows();
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      if (r[1] === namespace && r[2] === key && (r[5] === true || r[5] === 'TRUE')) {
+      var isActive = r[5] === true || String(r[5]).toUpperCase() === 'TRUE';
+      if (r[1] === namespace && r[2] === key && isActive) {
         sheet.getRange(i + 2, this.COL.ACTIVE).setValue(false);
       }
+    }
+  },
+
+  /**
+   * PEMBERSIH DATABASE IN-PLACE (PURGE INACTIVE ROWS)
+   * Menghapus semua baris bernilai active === false / 'FALSE' (950+ baris sampah)
+   * Memangkas ukuran sheet secara instan tanpa merusak header (baris 1).
+   */
+  purgeInactive() {
+    var lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      var sheet = this._getSheet();
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) {
+        return { success: true, purged: 0, activeRemaining: 0 };
+      }
+
+      var header = data[0];
+      var rows = data.slice(1);
+      var totalBefore = rows.length;
+
+      var activeRows = rows.filter(function(r) {
+        return r[5] === true || String(r[5]).toUpperCase() === 'TRUE';
+      });
+
+      var purgedCount = totalBefore - activeRows.length;
+      if (purgedCount === 0) {
+        return { success: true, purged: 0, activeRemaining: activeRows.length };
+      }
+
+      // Bersihkan isi sheet dari baris ke-2
+      sheet.getRange(2, 1, totalBefore, header.length).clearContent();
+      SpreadsheetApp.flush();
+
+      // Tulis ulang baris aktif sekaligus
+      if (activeRows.length > 0) {
+        sheet.getRange(2, 1, activeRows.length, header.length).setValues(activeRows);
+        SpreadsheetApp.flush();
+      }
+
+      AppLogger.info('KNOWLEDGE_PURGE_SUCCESS', 'purged:' + purgedCount + '|remaining:' + activeRows.length);
+      return { success: true, purged: purgedCount, activeRemaining: activeRows.length };
+    } catch (e) {
+      AppLogger.error('KNOWLEDGE_PURGE_FAIL', e.message);
+      return { success: false, error: e.message };
+    } finally {
+      lock.releaseLock();
     }
   }
 };
