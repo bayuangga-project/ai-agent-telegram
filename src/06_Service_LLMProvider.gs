@@ -1,9 +1,11 @@
 /**
  * ===================================================================
- * SERVICE: LLM PROVIDER ORCHESTRATOR (CIRCUIT-BREAKER ROUTING)
+ * SERVICE: LLM PROVIDER ORCHESTRATOR (SMART BLACKLIST & COOLDOWN)
  * ===================================================================
  */
 const LLMProviderService = {
+  COOLDOWN_SECONDS: 1800, // 30 Menit Cooldown
+
   REGISTRY: {
     openrouter: {
       apiKeyProperty: 'openrouterApiKey',
@@ -41,12 +43,17 @@ const LLMProviderService = {
 
     var startTime = new Date().getTime();
 
-    // 1. Jalur Utama: OpenRouter Free Models (dengan Circuit Breaker)
+    // 1. Jalur Utama: OpenRouter (dengan Blacklist & Cooldown Check)
     var openRouterKey = Config.load().openrouterApiKey;
     if (openRouterKey && rankedModels.length > 0) {
       for (var i = 0; i < rankedModels.length; i++) {
         var modelId = rankedModels[i];
-        if (modelId.indexOf(':free') === -1) continue;
+
+        // Skip model yang sedang masuk Blacklist Cooldown (30 Menit)
+        if (this._isModelBlacklisted(modelId)) {
+          AppLogger.info('LLM_SKIP_BLACKLISTED', modelId);
+          continue;
+        }
 
         try {
           var text = OpenRouterProvider.call(params.systemInstruction, params.messages, params.temperature, modelId);
@@ -57,18 +64,20 @@ const LLMProviderService = {
         } catch (err) {
           var latencyFail = new Date().getTime() - startTime;
           this._recordStatSafe(taskType, modelId, false, latencyFail);
-          AppLogger.warning('LLM_OPENROUTER_FAIL', modelId + '|' + err.message);
+          
+          var errStr = String(err.message || err);
+          AppLogger.warning('LLM_OPENROUTER_FAIL', modelId + '|' + errStr);
 
-          // CIRCUIT BREAKER: Jika kuota harian akun free habis (429), langsung hentikan loop OpenRouter
-          if (err.message && err.message.indexOf('429') >= 0) {
-            AppLogger.warning('LLM_CIRCUIT_BREAKER', 'openrouter_daily_limit_hit_skipping_all');
-            break;
+          // Deteksi error 402/429/500/503/Quota -> Masukkan ke Blacklist 30 Menit
+          if (this._shouldBlacklist(errStr)) {
+            this._blacklistModel(modelId, errStr);
           }
+          // Loop Lanjut mencoba kandidat model berikutnya!
         }
       }
     }
 
-    // 2. Backup 1: Gemini (Model Stabil gemini-1.5-flash)
+    // 2. Backup 1: Gemini (gemini-1.5-flash)
     var geminiKey = Config.load().geminiApiKey;
     if (geminiKey) {
       try {
@@ -78,7 +87,7 @@ const LLMProviderService = {
         AppLogger.info('LLM_BACKUP_GEMINI_SUCCESS', geminiLatency + 'ms');
         return { provider: 'gemini', text: geminiText, model: 'gemini-1.5-flash' };
       } catch (gErr) {
-        AppLogger.warning('LLM_BACKUP_GEMINI_FAIL', gErr.message);
+        AppLogger.warning('LLM_BACKUP_GEMINI_FAIL', String(gErr.message || gErr));
       }
     }
 
@@ -92,7 +101,7 @@ const LLMProviderService = {
         AppLogger.info('LLM_BACKUP_GROQ_SUCCESS', groqLatency + 'ms');
         return { provider: 'groq', text: groqText, model: 'llama_groq' };
       } catch (grErr) {
-        AppLogger.warning('LLM_BACKUP_GROQ_FAIL', grErr.message);
+        AppLogger.warning('LLM_BACKUP_GROQ_FAIL', String(grErr.message || grErr));
       }
     }
 
@@ -114,5 +123,43 @@ const LLMProviderService = {
         LLMIntelligence.recordStat(taskType, modelId, success, latency);
       }
     } catch (e) {}
+  },
+
+  _isModelBlacklisted(modelId) {
+    try {
+      var cache = CacheService.getScriptCache();
+      var key = this._getCacheKey(modelId);
+      return cache.get(key) !== null;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  _blacklistModel(modelId, reason) {
+    try {
+      var cache = CacheService.getScriptCache();
+      var key = this._getCacheKey(modelId);
+      cache.put(key, 'blacklisted', this.COOLDOWN_SECONDS);
+      AppLogger.warning('LLM_MODEL_BLACKLISTED', modelId + '|cooldown:' + this.COOLDOWN_SECONDS + 's|reason:' + reason.substring(0, 100));
+    } catch (e) {
+      AppLogger.error('LLM_BLACKLIST_SAVE_FAIL', e.message);
+    }
+  },
+
+  _shouldBlacklist(errMessage) {
+    if (!errMessage) return false;
+    var msg = errMessage.toLowerCase();
+    return msg.indexOf('429') >= 0 || 
+           msg.indexOf('402') >= 0 || 
+           msg.indexOf('503') >= 0 || 
+           msg.indexOf('500') >= 0 || 
+           msg.indexOf('rate limit') >= 0 || 
+           msg.indexOf('credit') >= 0 || 
+           msg.indexOf('quota') >= 0;
+  },
+
+  _getCacheKey(modelId) {
+    var clean = String(modelId || '').replace(/[^a-zA-Z0-9]/g, '_');
+    return 'LLM_BL_' + clean.substring(0, 50);
   }
 };
