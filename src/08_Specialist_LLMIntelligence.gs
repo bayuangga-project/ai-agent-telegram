@@ -18,7 +18,8 @@ const LLMIntelligence = {
     var res1 = this.discoverModels();
     var res2 = this.benchmarkBatch();
     var res3 = this.rankModels();
-    return { discovery: res1, benchmark: res2, ranking: res3 };
+    var res4 = this.adaptiveReRank();
+    return { discovery: res1, benchmark: res2, ranking: res3, adaptive: res4 };
   },
 
   discoverModels() {
@@ -251,9 +252,6 @@ const LLMIntelligence = {
     }
   },
 
-  /**
-   * Pencatatan metrik ringan: MURNI mencatat statistik, TIDAK PERNAH memicu re-ranking di tengah chat
-   */
   recordStat(taskType, modelId, success, latencyMs) {
     try {
       var raw = KnowledgeRepository.get(this.NAMESPACE_STATS, 'counters');
@@ -276,15 +274,14 @@ const LLMIntelligence = {
     } catch (e) {}
   },
 
-  /**
-   * Re-ranking adaptif: HANYA dipanggil oleh scheduler pemeliharaan jam 03:00
-   */
   adaptiveReRank() {
     var rawStats = KnowledgeRepository.get(this.NAMESPACE_STATS, 'counters');
-    if (!rawStats) return;
+    if (!rawStats) return { status: 'no_stats' };
 
     var counters;
-    try { counters = JSON.parse(rawStats); } catch (e) { return; }
+    try { counters = JSON.parse(rawStats); } catch (e) { return { status: 'parse_error' }; }
+
+    if (Object.keys(counters).length === 0) return { status: 'empty_counters' };
 
     var results = this._loadExistingResults();
     var hasChanges = false;
@@ -315,5 +312,6 @@ const LLMIntelligence = {
       KnowledgeRepository.save(this.NAMESPACE_STATS, 'counters', '{}', 'RESET_COUNTERS');
     } catch (e) {}
     AppLogger.info('ADAPTIVE_RERANK', 'completed');
+    return { status: 'done', adjusted: hasChanges };
   }
 };
