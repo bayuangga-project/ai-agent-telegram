@@ -47,6 +47,12 @@ const SpreadsheetGateway = {
       }
       AppLogger.info('SHEET_CREATED', sheetName);
     }
+    this._sheets[sheetName] = sheet;
     return sheet;
+  },
+
+  clearCache() {
+    this._spreadsheet = null;
+    this._sheets = {};
   }
 };
