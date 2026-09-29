@@ -1,16 +1,105 @@
 /**
  * ===================================================================
- * WEB SEARCH PROVIDER SERVICE (ORCHESTRATOR)
+ * WEB SEARCH PROVIDER SERVICE (ORCHESTRATOR & PROVIDERS)
  * Tanggung jawab: coba Google dulu, kalau gagal/kuota habis,
  * fallback ke Tavily.
- *
- * PENTING: daftar provider dibungkus method getProviders(), BUKAN
- * property array langsung. Ini SENGAJA untuk menghindari
- * ReferenceError akibat urutan load file GAS (lihat ARCHITECTURE.md
- * bagian "Lazy Evaluation Rule"). Referensi ke provider lain hanya
- * boleh terjadi saat method dipanggil, bukan saat file dimuat.
  * ===================================================================
  */
+
+const GoogleSearchProvider = {
+  NAME: 'google',
+  ENDPOINT: 'https://www.googleapis.com/customsearch/v1',
+  MAX_RESULTS: 5,
+
+  isConfigured() {
+    const config = Config.load();
+    return !!(config.googleSearchApiKey && config.googleSearchEngineId);
+  },
+
+  search(query) {
+    if (!this.isConfigured()) {
+      throw new Error('Google Search belum dikonfigurasi (API key/Engine ID kosong)');
+    }
+
+    const config = Config.load();
+    const url = this.ENDPOINT +
+      '?key=' + encodeURIComponent(config.googleSearchApiKey) +
+      '&cx=' + encodeURIComponent(config.googleSearchEngineId) +
+      '&q=' + encodeURIComponent(query) +
+      '&num=' + this.MAX_RESULTS;
+
+    const options = { method: 'get', muteHttpExceptions: true };
+    const response = UrlFetchApp.fetch(url, options);
+    const code = response.getResponseCode();
+
+    if (code === 429) {
+      throw new Error('Google Search kuota habis (HTTP 429)');
+    }
+    if (code !== 200) {
+      throw new Error('Google Search HTTP error ' + code);
+    }
+
+    const data = JSON.parse(response.getContentText());
+    if (!data.items) return [];
+
+    return data.items.map(item => ({
+      title: item.title,
+      snippet: item.snippet,
+      link: item.link
+    }));
+  }
+};
+
+const TavilySearchProvider = {
+  NAME: 'tavily',
+  ENDPOINT: 'https://api.tavily.com/search',
+  MAX_RESULTS: 5,
+
+  isConfigured() {
+    return !!Config.load().tavilyApiKey;
+  },
+
+  search(query) {
+    if (!this.isConfigured()) {
+      throw new Error('Tavily belum dikonfigurasi (API key kosong)');
+    }
+
+    const config = Config.load();
+    const payload = {
+      api_key: config.tavilyApiKey,
+      query: query,
+      max_results: this.MAX_RESULTS,
+      include_answer: false
+    };
+
+    const options = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(this.ENDPOINT, options);
+    const code = response.getResponseCode();
+
+    if (code === 429) {
+      throw new Error('Tavily kuota habis (HTTP 429)');
+    }
+    if (code !== 200) {
+      throw new Error('Tavily HTTP error ' + code);
+    }
+
+    const data = JSON.parse(response.getContentText());
+    if (!data.results) return [];
+
+    return data.results.map(item => ({
+      title: item.title,
+      snippet: item.content,
+      link: item.url
+    }));
+  }
+};
+
 const WebSearchProviderService = {
   getProviders() {
     return [GoogleSearchProvider, TavilySearchProvider];
@@ -34,7 +123,7 @@ const WebSearchProviderService = {
   },
 
   formatResultsAsContext(results) {
-    if (results.length === 0) return 'Tidak ada hasil pencarian ditemukan.';
+    if (!results || results.length === 0) return 'Tidak ada hasil pencarian ditemukan.';
 
     return results.map((r, i) =>
       (i + 1) + '. ' + r.title + '\n   ' + r.snippet + '\n   Sumber: ' + r.link
