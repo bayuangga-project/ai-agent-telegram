@@ -89,3 +89,26 @@ function test_ValidateToolSchemaConsistency() {
     Logger.log('❌ FAIL: Tool berikut ada di Registry tapi belum ada fungsinya di Manager: ' + missingBridge.join(', '));
   }
 }
+
+/**
+ * TEST: Verifikasi bahwa Vexa ingat namanya dan tidak "halu" lagi
+ */
+function test_VerifyNamePersistence() {
+  Logger.log('=== TEST VERIFIKASI INGATAN NAMA VEXA ===');
+
+  // 1. Simpan nama Vexa secara eksplisit
+  Manager._checkAndSaveIdentityUpdate('test_chat_id', 'namamu vexa');
+
+  // 2. Panggil buildSystemPersona() dan cek apakah {{name}} sudah berubah jadi "Vexa"
+  var renderedPersona = ChatSpecialist.buildSystemPersona();
+  Logger.log('Hasil Render Persona:\n' + renderedPersona);
+
+  var hasVexa = renderedPersona.indexOf('Vexa') !== -1;
+  var hasRawTemplate = renderedPersona.indexOf('{{name}}') !== -1;
+
+  if (hasVexa && !hasRawTemplate) {
+    Logger.log('✅ PASS: Nama "Vexa" berhasil dirender sempurna ke dalam otak LLM! Teks {{name}} mentah sudah hilang.');
+  } else {
+    Logger.log('❌ FAIL: Nama Vexa gagal dirender ke persona');
+  }
+}
