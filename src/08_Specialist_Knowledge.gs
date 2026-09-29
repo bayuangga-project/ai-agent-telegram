@@ -1,6 +1,6 @@
 /**
  * ===================================================================
- * SPESIALIS: KNOWLEDGE
+ * SPESIALIS: KNOWLEDGE (USER FACTS MANAGEMENT)
  * Tanggung jawab: simpan & ambil fakta tentang user.
  * ===================================================================
  */
