@@ -654,5 +654,8 @@ ATURAN PERILAKU:
 ## soul:identity
 {"name":"Vexa","traits":[],"values":[],"communication_style":null,"relationship_with_developer":null}
 
+## sync:export_namespaces
+["intent","soul","tools","finance","docsync","benchmark","selfheal","feature","roadmap","agent","sync","chat","audit","selfaware","help"]
+
 ## tools:registry
 [{"name":"catat_keuangan","description":"Mencatat pengeluaran/pemasukan"},{"name":"tanya_saldo","description":"Cek sisa saldo wallet"},{"name":"web_search","description":"Cari info terkini dari internet"},{"name":"chat","description":"Obrolan biasa"}]
