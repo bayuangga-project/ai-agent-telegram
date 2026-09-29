@@ -12,7 +12,7 @@ var SelfDocSync = {
     'ARCHITECTURE.md',
     'PROGRESS.md',
     'ROADMAP.md',
-    'AI_DEVELOPMENT_HANDOFF.md',
+    'AI_DEVELOPMENT_HANDOVER.md',
     'ai_knowledge.md'
   ],
 
