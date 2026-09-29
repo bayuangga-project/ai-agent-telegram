@@ -1,6 +1,6 @@
 /**
  * ===================================================================
- * APP LOGGER
+ * APP LOGGER (FAST DIRECT LOGGING - ZERO LOCK DEADLOCK)
  * ===================================================================
  */
 const AppLogger = {
@@ -8,12 +8,10 @@ const AppLogger = {
 
   write(jenisEvent, detail, status) {
     try {
-      SpreadsheetGateway.appendRowSafe(this.SHEET_NAME, [
-        new Date(), jenisEvent, detail, status
-      ]);
+      var sheet = SpreadsheetGateway.getSheet(this.SHEET_NAME);
+      sheet.appendRow([new Date(), jenisEvent, detail, status]);
     } catch (e) {
-      // Jika logger gagal total, biarkan saja (swallow error).
-      // Jangan sampai kegagalan mencatat log malah membunuh aplikasi utama.
+      // Swallow error agar kegagalan logging tidak mematikan eksekusi utama
     }
   },
 
