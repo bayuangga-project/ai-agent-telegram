@@ -618,6 +618,88 @@ FORMAT OUTPUT (JSON murni tanpa wrapper markdown):
   "summary": "ringkasan perubahan dokumentasi"
 }
 
+
+## tools:registry
+[
+  {
+    "name": "catat_keuangan",
+    "description": "Mencatat pengeluaran, pemasukan, atau transfer keuangan pengguna ke database.",
+    "parameters": { "wallet": "string", "tipe_transaksi": "pemasukan|pengeluaran", "kategori": "string", "jumlah": "number", "deskripsi": "string" }
+  },
+  {
+    "name": "tanya_saldo",
+    "description": "Memeriksa sisa saldo wallet tertentu atau seluruh wallet milik pengguna.",
+    "parameters": { "wallet": "string (opsional)" }
+  },
+  {
+    "name": "ringkasan_keuangan",
+    "description": "Mengambil rekap atau laporan keuangan pengguna untuk periode tertentu (YYYY-MM).",
+    "parameters": { "periode": "string YYYY-MM (opsional)" }
+  },
+  {
+    "name": "buat_reminder",
+    "description": "Membuat pengingat/reminder baru untuk pengguna.",
+    "parameters": { "deskripsi": "string", "waktuPertama": "dd/MM/yyyy HH:mm", "prioritas": "Normal|Tinggi|Rendah" }
+  },
+  {
+    "name": "ack_reminder",
+    "description": "Merespons atau menyelesaikan pengingat yang sedang aktif.",
+    "parameters": { "aksiReminder": "done|snooze", "snoozeMinit": "number" }
+  },
+  {
+    "name": "web_search",
+    "description": "Mencari informasi terkini, berita, atau data populer terbaru dari internet secara real-time.",
+    "parameters": { "searchQuery": "string" }
+  },
+  {
+    "name": "self_query",
+    "description": "Menjawab pertanyaan teknis mengenai arsitektur, cara kerja internal, modul, atau infrastruktur sistem agen ini.",
+    "parameters": { "focus": "all|arsitektur|kemampuan|performa|pengetahuan|keterbatasan" }
+  },
+  {
+    "name": "chat",
+    "description": "Memberikan jawaban percakapan biasa jika tidak membutuhkan eksekusi tool khusus.",
+    "parameters": { "jawabanChat": "string" }
+  }
+]
+
+## agent:planning_prompt
+{{persona}}
+
+Waktu saat ini: {{now}} WIB.
+
+=== DAFTAR TOOL TERSEDIA ===
+{{tools_registry}}
+
+=== RIWAYAT PERCAKAPAN ===
+{{riwayat}}
+
+=== FAKTA RELEVAN ===
+{{fakta}}
+
+=== PROFIL USER ===
+{{profil}}
+
+=== MEMORI JANGKA PANJANG (LTM) ===
+{{ltm}}
+
+=== OBSERVASI DARI LANGKAH SEBELUMNYA ===
+{{observations}}
+
+=== PESAN USER ===
+"{{user_message}}"
+
+TUGAS:
+Analisis pesan user dan hasil observasi sebelumnya. Tentukan langkah berikutnya secara objektif.
+
+ATURAN OUTPUT (Balas HANYA JSON murni tanpa markdown):
+{
+  "thought": "penjelasan penalaran langkahmu",
+  "action": "nama_tool_dari_registry" ATAU "final_answer",
+  "tool_params": { ... parameter sesuai spesifikasi tool ... },
+  "final_answer": "jawaban akhir ke user jika action = final_answer"
+}
+
 ## selfheal:response
 Hasil diagnosis dan tindakan perbaikan otomatis (self-healing):
 {{data}}
