@@ -273,11 +273,10 @@ function audit_4_SheetKeGitHub_Dokumentasi(hasil) {
   }
 }
 
-/// =====================================================
+// =====================================================
 // 5. PERBANDINGAN FILE .md (GITHUB vs SHEET)
 //    Metode: Perbandingan KATA PER KATA (bukan karakter)
-//    Alasan: Mengabaikan perbedaan encoding, spasi gaib,
-//    dan format enter yang tidak terlihat mata manusia.
+//    Menggunakan Whitelist Export Namespace untuk ai_knowledge.md
 // =====================================================
 function audit_5_FileMd_Identik(hasil) {
   Logger.log('');
@@ -319,14 +318,28 @@ function audit_5_FileMd_Identik(hasil) {
 
     if (fileName === 'ai_knowledge.md') {
       try {
+        // Ambil Whitelist Namespace Human Knowledge resmi
+        var exportList = [];
+        if (typeof KnowledgeSyncSpecialist !== 'undefined' && KnowledgeSyncSpecialist.getExportNamespaces) {
+          exportList = KnowledgeSyncSpecialist.getExportNamespaces();
+        } else {
+          exportList = ['intent', 'soul', 'tools', 'finance', 'docsync', 'benchmark', 'selfheal', 'feature', 'roadmap', 'agent', 'sync', 'chat', 'audit', 'selfaware', 'help'];
+        }
+
         var allKnowledge = KnowledgeRepository.getAll();
         var grouped = {};
         for (var k = 0; k < allKnowledge.length; k++) {
           var row = allKnowledge[k];
-          if (row.active !== true && row.active !== 'TRUE') continue;
+          var isActive = row.active === true || String(row.active).toUpperCase() === 'TRUE';
+          if (!isActive) continue;
+
+          // Filter: Hanya rakit namespace yang diizinkan dalam Whitelist
+          if (exportList.indexOf(row.namespace) === -1) continue;
+
           if (!grouped[row.namespace]) grouped[row.namespace] = [];
           grouped[row.namespace].push({ key: row.key, content: row.content });
         }
+
         var mdLines = ['# AI Agent Knowledge Base', ''];
         var namespaces = Object.keys(grouped).sort();
         for (var n = 0; n < namespaces.length; n++) {
