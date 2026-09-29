@@ -1,7 +1,7 @@
 /**
  * ===================================================================
- * UTILITIES: ID GENERATOR & DATE TIME
- * Utilitas umum penanganan ID dan Waktu (Asia/Jakarta).
+ * UTILITIES: ID GENERATOR, DATE TIME, & TEMPLATE ENGINE
+ * Utilitas umum penanganan ID, Waktu (Asia/Jakarta), dan Rendering Template.
  * ===================================================================
  */
 const IdGenerator = {
@@ -43,5 +43,19 @@ const DateTimeUtils = {
   formatTanggal(date) {
     var d = this.toWIB(date);
     return Utilities.formatDate(d, this.TIMEZONE, 'yyyy-MM-dd');
+  }
+};
+
+const TemplateEngine = {
+  render(template, variables) {
+    if (!template) return '';
+    let result = template;
+    for (const key in variables) {
+      if (variables.hasOwnProperty(key)) {
+        const regex = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
+        result = result.replace(regex, variables[key]);
+      }
+    }
+    return result;
   }
 };
