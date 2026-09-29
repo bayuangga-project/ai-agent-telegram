@@ -270,7 +270,7 @@ const FeatureArchitect = {
       fileList: fileList,
       sheetList: sheetList,
       intentList: 'catat_keuangan, tanya_saldo, sync_documentation, audit_code, roadmap_query, implement_feature, self_query, soul_query',
-      commandList: '/ingat, /diagnose, /patch, /soul, /memory, /sync'
+      commandList: '/ingat, /diagnose, /patch, /soul, /memory'
     };
   },
 
