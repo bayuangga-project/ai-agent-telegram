@@ -187,3 +187,79 @@ function jalankanMigrasiDatabaseDokumen() {
   Logger.log('✅ DATABASE BERHASIL DIPERBARUI!');
   Logger.log('Daftar dokumen resmi baru telah disimpan ke Google Sheet.');
 }
+
+function test_P2_AllFixes() {
+  Logger.log('=== TEST P2: Semua Perbaikan ===');
+  
+  // P2.2: adaptiveReRank dipanggil di pipeline
+  var pipelineResult = LLMIntelligence.runFullPipeline();
+  if (pipelineResult.adaptive) {
+    Logger.log('✅ P2.2 PASS: adaptiveReRank dipanggil (status: ' + pipelineResult.adaptive.status + ')');
+  } else {
+    Logger.log('❌ P2.2 FAIL: adaptiveReRank tidak ada di hasil pipeline');
+  }
+  
+  // P2.3: /sync tidak ada di commandList
+  var featureCtx = FeatureArchitect._gatherProjectContext();
+  var hasSync1 = featureCtx.commandList.indexOf('/sync') !== -1;
+  Logger.log((hasSync1 ? '❌' : '✅') + ' P2.3a ' + (hasSync1 ? 'FAIL' : 'PASS') + ': FeatureArchitect commandList');
+  
+  var selfData = SelfAwareness._gatherSelfData();
+  var hasSync2 = selfData.commandList.indexOf('/sync') !== -1;
+  Logger.log((hasSync2 ? '❌' : '✅') + ' P2.3b ' + (hasSync2 ? 'FAIL' : 'PASS') + ': SelfAwareness commandList');
+  
+  Logger.log('=== P2 SELESAI ===');
+}
+
+/**
+ * Perbaiki nama file kanonik: HANDOFF → HANDOVER
+ * Jalankan 1x saja, lalu hapus fungsi ini.
+ */
+function perbaikiNamaFileKanonik() {
+  Logger.log('=== MEMPERBAIKI NAMA FILE KANONIK ===');
+  
+  var fileBenar = [
+    'ARCHITECTURE.md',
+    'PROGRESS.md',
+    'ROADMAP.md',
+    'AI_DEVELOPMENT_HANDOVER.md',
+    'ai_knowledge.md'
+  ].join('\n');
+  
+  KnowledgeRepository.save('docsync', 'canonical_files', fileBenar, 'Perbaikan nama: HANDOFF → HANDOVER');
+  
+  Logger.log('✅ Database kanonik berhasil diperbaiki!');
+  Logger.log('Daftar baru:');
+  Logger.log(fileBenar);
+}
+
+/**
+ * Salin file AI_DEVELOPMENT_HANDOVER.md dari GitHub ke Google Sheet.
+ * Jalankan 1x saja dari GAS Editor.
+ */
+function salinHandoverKeSheetDocumentation() {
+  Logger.log('=== MENYALIN HANDOVER KE SHEET ===');
+  
+  var fileName = 'AI_DEVELOPMENT_HANDOVER.md';
+  var fileData = GitHubOpsService.readFile(fileName);
+  
+  if (fileData && fileData.content) {
+    // Simpan ke sheet Documentation
+    DocumentationRepository.upsert(fileName, fileData.content, fileData.sha, 'md');
+    Logger.log('✅ BERHASIL! File ' + fileName + ' sekarang sudah ada di Sheet Documentation.');
+  } else {
+    Logger.log('❌ GAGAL! Tidak bisa membaca file dari GitHub. Cek koneksi internet/token.');
+  }
+}
+
+/**
+ * Jalankan ini untuk mengirim (push) data Knowledge dari Sheet ke GitHub.
+ */
+function jalankanPushKnowledgeKeGitHub() {
+  Logger.log('=== MEMULAI PUSH KNOWLEDGE DARI SHEET KE GITHUB ===');
+  
+  var result = KnowledgeSyncSpecialist.pushSheetToGitHub();
+  
+  Logger.log('Hasil Eksekusi: ' + JSON.stringify(result));
+  Logger.log('✅ Proses selesai!');
+}
