@@ -112,3 +112,28 @@ function test_VerifyNamePersistence() {
     Logger.log('❌ FAIL: Nama Vexa gagal dirender ke persona');
   }
 }
+
+/**
+ * TEST: Verifikasi bahwa ReAct Planning Prompt menerima Persona Vexa yang ter-render sempurna
+ */
+function test_VerifyReActPlanningPromptIdentity() {
+  Logger.log('=== TEST RE-ACT PLANNING PROMPT IDENTITY ===');
+
+  // 1. Simpan nama Vexa
+  Manager._checkAndSaveIdentityUpdate('test_chat_id', 'namamu Vexa');
+
+  // 2. Minta Manager membangun ReAct Planning Prompt
+  var ctx = Manager._gatherContext();
+  var planningPrompt = Manager._buildPlanningPrompt('siapa namamu?', ctx, []);
+
+  Logger.log('Preview ReAct Prompt yang dikirim ke LLM:\n' + planningPrompt.substring(0, 500) + '...');
+
+  var hasVexa = planningPrompt.indexOf('NAMAMU ADALAH: Vexa') !== -1;
+  var hasRawTag = planningPrompt.indexOf('{{name}}') !== -1;
+
+  if (hasVexa && !hasRawTag) {
+    Logger.log('✅ PASS: ReAct Planning Prompt 100% menerima nama Vexa yang ter-render! Tag {{name}} mentah sudah musnah.');
+  } else {
+    Logger.log('❌ FAIL: ReAct Planning Prompt masih menerima tag mentah / tidak membaca nama Vexa.');
+  }
+}
