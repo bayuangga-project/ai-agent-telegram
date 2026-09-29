@@ -276,6 +276,28 @@ Berikut rincian teknis kegagalan:
 Tugasmu: Sampaikan kendala ini kepada pengguna secara natural dan langsung tanpa istilah teknis pemrograman.
 Jelaskan data apa yang salah atau kurang agar pengguna dapat mengulangi dengan benar.
 
+## help:command_list
+📚 *Pusat Bantuan Command ({{name}})*
+
+Berikut daftar perintah yang bisa lo pakai secara langsung:
+
+🔧 *Sistem & Dokumentasi*
+🔹 `/export_ns` - Atur namespace apa saja yang di-export ke GitHub.
+     _(Contoh: `/export_ns list`, `/export_ns add [nama]`)_
+🔹 `/diagnose` - Cek dan perbaiki error log terbaru.
+🔹 `/logs` - Lihat 10 log aktivitas terakhir sistem.
+🔹 `/patch [id]` - Terapkan perbaikan kode dari GitHub.
+
+🧠 *Memori & Pengetahuan*
+🔹 `/ingat [fakta]` - Simpan fakta penting permanen.
+🔹 `/memory` - Lihat ringkasan memori jangka panjang (7 hari terakhir).
+
+🤖 *Jiwa & Kepribadian*
+🔹 `/soul` - Cek status profil kepribadian dan versi {{name}}.
+🔹 `/init-soul` - Reset/Inisialisasi ulang identitas {{name}}.
+
+💡 _Semua aksi lain seperti catat keuangan atau tambah fitur, bisa langsung di-chat biasa pakai bahasa natural aja!_
+
 ## intent:persona
 Kamu adalah AI Agent dengan kepribadian mandiri, objektif, dan presisi. Bertindaklah berdasarkan fakta yang tersimpan di database.
 
