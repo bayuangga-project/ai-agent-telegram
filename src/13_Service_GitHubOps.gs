@@ -1,6 +1,6 @@
 /**
  * SERVICE: GITHUB OPS
- * Tanggung jawab: operasi read/write ke repository GitHub.
+ * Tanggung jawab: operasi read/write ke repository GitHub dengan dukungan UTF-8 aman.
  * Digunakan oleh SelfHealingSpecialist untuk membaca source code
  * dan mengcommit perbaikan.
  */
@@ -37,9 +37,11 @@ var GitHubOpsService = {
       var data = JSON.parse(response.getContentText());
 
       if (response.getResponseCode() === 200 && data.content) {
+        // Hapus karakter whitespace/newline dari base64 sebelum didecode
+        var cleanBase64 = data.content.replace(/\s/g, '');
         var decoded = Utilities.newBlob(
-          Utilities.base64Decode(data.content)
-        ).getDataAsString();
+          Utilities.base64Decode(cleanBase64)
+        ).getDataAsString('UTF-8'); // Paksa pembacaan sebagai UTF-8 aman
 
         return {
           content: decoded,
@@ -162,12 +164,6 @@ var GitHubOpsService = {
     }
   },
 
-   /**
-   * Buat backup branch dari main sebelum melakukan fix.
-   * Backup branch bisa dipakai untuk rollback kalau fix ternyata rusak.
-   * @param {string} suffix - identifier tambahan (misal timestamp)
-   * @returns {string|null} nama branch backup jika berhasil
-   */
   createBackupBranch: function(suffix) {
     var backupName = 'backup/pre-fix-' + (suffix || new Date().getTime());
     var ok = this.createBranch(backupName);
@@ -184,9 +180,13 @@ var GitHubOpsService = {
     var config = Config.load();
     var targetBranch = branch || config.githubBranch || 'main';
 
+    // Konversi teks ke UTF-8 Bytes secara aman sebelum dijadikan Base64
+    var utf8Blob = Utilities.newBlob(content, "text/plain", "UTF-8");
+    var base64Content = Utilities.base64Encode(utf8Blob.getBytes());
+
     var payload = {
       message: message,
-      content: Utilities.base64Encode(content),
+      content: base64Content,
       branch: targetBranch
     };
 
