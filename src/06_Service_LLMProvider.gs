@@ -49,7 +49,6 @@ const LLMProviderService = {
       for (var i = 0; i < rankedModels.length; i++) {
         var modelId = rankedModels[i];
 
-        // Skip model yang sedang masuk Blacklist Cooldown (30 Menit)
         if (this._isModelBlacklisted(modelId)) {
           AppLogger.info('LLM_SKIP_BLACKLISTED', modelId);
           continue;
@@ -68,16 +67,15 @@ const LLMProviderService = {
           var errStr = String(err.message || err);
           AppLogger.warning('LLM_OPENROUTER_FAIL', modelId + '|' + errStr);
 
-          // Deteksi error 402/429/500/503/Quota -> Masukkan ke Blacklist 30 Menit
+          // Masukkan ke Blacklist Cooldown jika error 404/402/429/500/503
           if (this._shouldBlacklist(errStr)) {
             this._blacklistModel(modelId, errStr);
           }
-          // Loop Lanjut mencoba kandidat model berikutnya!
         }
       }
     }
 
-    // 2. Backup 1: Gemini (gemini-1.5-flash)
+    // 2. Backup 1: Gemini
     var geminiKey = Config.load().geminiApiKey;
     if (geminiKey) {
       try {
@@ -91,7 +89,7 @@ const LLMProviderService = {
       }
     }
 
-    // 3. Backup 2: Groq (Llama-3.3-70b)
+    // 3. Backup 2: Groq
     var groqKey = Config.load().groqApiKey;
     if (groqKey) {
       try {
@@ -149,10 +147,13 @@ const LLMProviderService = {
   _shouldBlacklist(errMessage) {
     if (!errMessage) return false;
     var msg = errMessage.toLowerCase();
-    return msg.indexOf('429') >= 0 || 
+    return msg.indexOf('404') >= 0 || 
+           msg.indexOf('429') >= 0 || 
            msg.indexOf('402') >= 0 || 
            msg.indexOf('503') >= 0 || 
            msg.indexOf('500') >= 0 || 
+           msg.indexOf('not found') >= 0 || 
+           msg.indexOf('unavailable') >= 0 || 
            msg.indexOf('rate limit') >= 0 || 
            msg.indexOf('credit') >= 0 || 
            msg.indexOf('quota') >= 0;
