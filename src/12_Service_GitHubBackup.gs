@@ -1,24 +1,32 @@
 /**
  * ===================================================================
- * SERVICE: GITHUB BACKUP
- * Tanggung jawab: baca source code project GAS ini sendiri (via Apps
- * Script API), lalu push ke repo GitHub (via GitHub REST API).
- * Juga bisa backup dokumentasi (ARCHITECTURE.md, PROGRESS.md) yang
- * disimpan di Sheet "Documentation".
- * Berjalan 100% di GAS, tidak butuh local computer.
+ * SERVICE: GITHUB BACKUP (WITH AUTO-DELETE SYNC & SAFETY GUARD)
+ * Tanggung jawab: Backup otomatis source code & docs dari GAS ke GitHub.
+ * Otomatis menghapus file di GitHub yang sudah dihapus di GAS Editor.
  * ===================================================================
  */
 const GitHubBackupService = {
   APPS_SCRIPT_API_BASE: 'https://script.googleapis.com/v1/projects/',
   GITHUB_API_BASE: 'https://api.github.com/repos/',
+  MIN_LOCAL_FILES_SAFETY_THRESHOLD: 30, // Guard 1: Batas minimal file lokal agar delete sync diizinkan
 
   backupAllFiles() {
     const config = this._loadGitHubConfig();
     const files = this._fetchOwnSourceFiles();
-    const results = [];
+    
+    // SAFETY GUARD: Jika file lokal < 30, batalkan untuk mencegah kecelakaan terhapusnya repo
+    if (!files || files.length < this.MIN_LOCAL_FILES_SAFETY_THRESHOLD) {
+      AppLogger.error('GITHUB_BACKUP_ABORT', 'Safety Guard Triggered: File lokal terlalu sedikit (' + (files ? files.length : 0) + ' < ' + this.MIN_LOCAL_FILES_SAFETY_THRESHOLD + ')');
+      return [{ path: 'ALL', status: 'ABORTED_SAFETY_GUARD' }];
+    }
 
+    const results = [];
+    const localPaths = [];
+
+    // 1. Push / Update file lokal ke GitHub
     files.forEach(file => {
       const path = this._resolveFilePath(file);
+      localPaths.push(path);
       try {
         this._pushFileToGitHub(config, path, file.source);
         results.push({ path: path, status: 'OK' });
@@ -27,16 +35,15 @@ const GitHubBackupService = {
         results.push({ path: path, status: 'FAILED: ' + err.message });
         AppLogger.error('GITHUB_BACKUP_FILE_FAILED', path + ': ' + err.message);
       }
-      Utilities.sleep(400);
+      Utilities.sleep(200);
     });
+
+    // 2. Deteksi & Hapus file Yatim di GitHub (File yang sudah dihapus di GAS)
+    this._syncDeletedFilesToGitHub(config, localPaths, results);
 
     return results;
   },
 
-  /**
-   * Push isi dokumentasi (ARCHITECTURE.md, PROGRESS.md) dari Sheet
-   * "Documentation" ke root repo GitHub (bukan folder src/).
-   */
   backupDocs() {
     const config = this._loadGitHubConfig();
     const docs = DocumentationRepository.getAll();
@@ -56,10 +63,56 @@ const GitHubBackupService = {
         results.push({ path: doc.fileName, status: 'FAILED: ' + err.message });
         AppLogger.error('GITHUB_BACKUP_DOC_FAILED', doc.fileName + ': ' + err.message);
       }
-      Utilities.sleep(400);
+      Utilities.sleep(200);
     });
 
     return results;
+  },
+
+  _syncDeletedFilesToGitHub(config, localPaths, results) {
+    try {
+      const githubSrcFiles = GitHubOpsService.listDirectory('src');
+      if (!githubSrcFiles || !Array.isArray(githubSrcFiles)) return;
+
+      githubSrcFiles.forEach(ghFile => {
+        if (ghFile.type === 'file') {
+          const ghPath = ghFile.path;
+          
+          // Jika file di GitHub TIDAK ADA di daftar file lokal GAS -> Hapus dari GitHub!
+          if (localPaths.indexOf(ghPath) === -1) {
+            var deletedOk = this._deleteFileFromGitHub(config, ghPath, ghFile.sha);
+            if (deletedOk) {
+              results.push({ path: ghPath, status: 'DELETED_FROM_GITHUB' });
+              AppLogger.info('GITHUB_BACKUP_FILE_DELETED', ghPath);
+            }
+          }
+        }
+      });
+    } catch (e) {
+      AppLogger.warning('GITHUB_BACKUP_DELETE_SYNC_WARN', e.message);
+    }
+  },
+
+  _deleteFileFromGitHub(config, path, sha) {
+    const url = this.GITHUB_API_BASE + config.owner + '/' + config.repo + '/contents/' + path;
+    const payload = {
+      message: 'Auto cleanup dari GAS — file dihapus di editor',
+      sha: sha,
+      branch: config.branch
+    };
+
+    const response = UrlFetchApp.fetch(url, {
+      method: 'delete',
+      contentType: 'application/json',
+      headers: {
+        Authorization: 'token ' + config.token,
+        Accept: 'application/vnd.github+json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    return response.getResponseCode() === 200;
   },
 
   _loadGitHubConfig() {
@@ -109,7 +162,7 @@ const GitHubBackupService = {
 
     const payload = {
       message: 'Auto backup dari GAS — ' + new Date().toISOString(),
-      content: Utilities.base64Encode(content, Utilities.Charset.UTF_8),
+      content: Utilities.base64Encode(Utilities.newBlob(content, "text/plain", "UTF-8").getBytes()),
       branch: config.branch
     };
     if (existingSha) payload.sha = existingSha;
@@ -149,10 +202,6 @@ const GitHubBackupService = {
   }
 };
 
-/**
- * Backup lengkap: source code + dokumentasi, sekali jalan.
- * Jalankan fungsi ini dari dropdown GAS setiap mau backup manual.
- */
 function runFullBackup() {
   Logger.log('--- Backup Source Code ---');
   const codeResults = GitHubBackupService.backupAllFiles();
@@ -166,11 +215,6 @@ function runFullBackup() {
     (codeResults.length + docsResults.length) + ' file diproses ===');
 }
 
-/**
- * Jalankan fungsi ini SEKALI SAJA untuk mengaktifkan backup otomatis
- * setiap hari jam 23:00. Opsional — boleh diabaikan kalau mau backup
- * manual saja.
- */
 function setupDailyBackupTrigger() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction() === 'runFullBackup') {
