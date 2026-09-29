@@ -1,15 +1,15 @@
 /**
  * ===================================================================
- * MANAGER: RE-ACT AUTONOMOUS AGENT ENGINE
- * Tanggung jawab: Mengelola alur pemikiran agen (Plan -> Act -> Observe),
- * eksekusi tools secara dinamis, dan respon transparan tanpa hardcode.
+ * MANAGER: RE-ACT AUTONOMOUS AGENT ENGINE (SMART PARSER & SAFE FALLBACK)
  * ===================================================================
  */
 const Manager = {
 
-  processConversationalMessage(chatId, text) {
+    processConversationalMessage(chatId, text) {
     try {
-      // 1. Pengecekan approval pending draft SelfDocSync
+      // Pengecekan pemicu ubah nama otomatis ("Namamu X" / "Nama kamu X")
+      this._checkAndSaveIdentityUpdate(chatId, text);
+
       var pendingDraft = SelfDocSync.getPendingDraft();
       if (pendingDraft) {
         var approvalAction = SelfDocSync.parseApproval(text);
@@ -18,15 +18,11 @@ const Manager = {
         }
       }
 
-      // 2. Pengecekan command eksplisit (/ingat, /diagnose, dll)
       if (CommandRouter.isKnownCommand(text)) {
         return CommandRouter.handle(chatId, text);
       }
 
-      // 3. Ambil konteks selektif (ringan & cepat)
       var context = this._gatherContext();
-
-      // 4. Jalankan ReAct Agent Planning Loop (Autonomous Execution)
       return this._planAndExecute(chatId, text, context);
 
     } catch (err) {
@@ -40,8 +36,33 @@ const Manager = {
   },
 
   /**
-   * Selective Context Gathering: Memangkas beban token agar respon cepat & ringan
+   * Deteksi & Simpan Perubahan Identitas/Nama AI Otomatis
    */
+  _checkAndSaveIdentityUpdate(chatId, text) {
+    if (!text) return;
+    var lower = text.toLowerCase().trim();
+    var match = lower.match(/^(?:namamu|nama kamu|panggil kamu|panggilmu)\s+([a-zA-Z0-9\s]+)$/i);
+    if (match && match[1]) {
+      var newName = match[1].trim();
+      newName = newName.charAt(0).toUpperCase() + newName.slice(1);
+      
+      try {
+        // 1. Simpan ke Soul Identity
+        if (typeof SoulSpecialist !== 'undefined' && SoulSpecialist.updateIdentity) {
+          SoulSpecialist.updateIdentity({ name: newName });
+        }
+        // 2. Simpan ke Fact Repository
+        KnowledgeSpecialist.saveFact(chatId, 'Nama AI Agent ini adalah ' + newName, 'identitas');
+        // 3. Simpan ke User Profile
+        UserProfileSpecialist.saveUpdates([{ key: 'ai_name', value: newName, category: 'identitas' }]);
+        
+        AppLogger.info('IDENTITY_NAME_SAVED', 'name:' + newName);
+      } catch (e) {
+        AppLogger.error('IDENTITY_SAVE_FAIL', e.message);
+      }
+    }
+  },
+
   _gatherContext() {
     return {
       riwayat: ChatHistoryRepository.getRecent(10),
@@ -53,10 +74,6 @@ const Manager = {
     };
   },
 
-  /**
-   * AUTONOMOUS AGENT RE-ACT LOOP (Plan -> Act -> Observe)
-   * Maksimal 3 Langkah per pesan
-   */
   _planAndExecute(chatId, userText, context) {
     var maxSteps = 3;
     var step = 1;
@@ -87,10 +104,9 @@ const Manager = {
 
       AppLogger.info('AGENT_THOUGHT', 'step:' + step + '|thought:' + (plan.thought || '-'));
 
-      // Skenario A: Agen memutuskan memberikan Jawaban Akhir
       if (plan.action === 'final_answer' || plan.action === 'chat') {
         var finalResponse = plan.final_answer || plan.jawabanChat || (plan.tool_params && plan.tool_params.jawabanChat) || null;
-        if (finalResponse) {
+        if (finalResponse && finalResponse.trim().length > 0) {
           ChatHistoryRepository.save(chatId, 'user', userText);
           ChatHistoryRepository.save(chatId, 'ai', finalResponse);
           return finalResponse;
@@ -98,11 +114,9 @@ const Manager = {
         break;
       }
 
-      // Skenario B: Agen memilih Tool dari Registry
       AppLogger.info('AGENT_ACTION_SELECT', 'step:' + step + '|tool:' + plan.action);
       var toolResult = this._executeTool(plan.action, plan.tool_params || {}, chatId, userText, context);
 
-      // Simpan observasi untuk langkah berikutnya
       observations.push({
         step: step,
         thought: plan.thought,
@@ -113,7 +127,6 @@ const Manager = {
 
       lastToolResult = toolResult;
 
-      // Jika tool langsung mengembalikan string respons final (seperti _askLLMWithKnowledge)
       if (typeof toolResult === 'string' && toolResult.length > 0) {
         return toolResult;
       }
@@ -121,14 +134,10 @@ const Manager = {
       step++;
     }
 
-    // Fallback Transparan: Jika ReAct loop tidak selesai / gagal
     AppLogger.warning('AGENT_FALLBACK_TRIGGERED', 'userText:' + userText);
     return this._handleFallback(chatId, userText, context, observations, lastToolResult);
   },
 
-  /**
-   * Bridge Eksekusi Deterministik Tool
-   */
   _executeTool(toolName, params, chatId, userText, context) {
     try {
       var intentMock = { tipe: toolName, keuangan: params, diagnose_error: params, update_docs: params, audit_code: params, fix_audit: params, check_changes: params, roadmap_query: params, implement_feature: params, self_query: params, searchQuery: params.searchQuery, jawabanChat: params.jawabanChat };
@@ -185,8 +194,14 @@ const Manager = {
     return persona + '\nTools: ' + toolsRegistry + '\nUser: ' + userText;
   },
 
+  /**
+   * SMART PARSER: Jika LLM menjawab dalam teks biasa (bukan JSON), 
+   * otomatis bungkus sebagai final_answer agar pesan tidak hilang!
+   */
   _parseAgentPlan(rawText) {
+    if (!rawText) return null;
     var cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
     try {
       return JSON.parse(cleaned);
     } catch (e) {
@@ -194,13 +209,21 @@ const Manager = {
         var repaired = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
         return JSON.parse(repaired);
       } catch (e2) {
+        // Jika LLM merespons dengan kalimat teks biasa (bukan format JSON),
+        // terima teks tersebut secara cerdas sebagai final_answer!
+        if (cleaned.length > 0 && cleaned.indexOf('{') === -1) {
+          return {
+            thought: 'LLM direct conversational text response',
+            action: 'final_answer',
+            final_answer: cleaned
+          };
+        }
         return null;
       }
     }
   },
 
   _handleFallback(chatId, userText, context, observations, lastToolResult) {
-    // Jika ada error di observasi, sampaikan secara jujur
     if (lastToolResult && typeof lastToolResult === 'object' && lastToolResult.error) {
       return this._askLLMWithKnowledge(chatId, userText, 'chat', 'error', {
         code: 'TOOL_EXECUTION_FAILED',
@@ -599,12 +622,19 @@ const Manager = {
 
   _handleChatBiasa(chatId, text, intent, riwayat) {
     var finalText;
-    if (ChatSpecialist.needsWebSearch(intent))
+    if (ChatSpecialist.needsWebSearch(intent)) {
       finalText = this._handleChatWithWebSearch(text, intent, riwayat);
-    else if (intent.complexity === 'heavy')
+    } else if (intent.complexity === 'heavy') {
       finalText = this._handleHeavyChat(text, intent, riwayat);
-    else
-      finalText = intent.jawabanChat || '';
+    } else if (intent.jawabanChat && intent.jawabanChat.trim().length > 0) {
+      finalText = intent.jawabanChat;
+    } else {
+      finalText = this._handleIntentFailure(chatId, text, riwayat);
+    }
+
+    if (!finalText || finalText.trim().length === 0) {
+      finalText = 'Halo! Ada yang bisa saya bantu terkait tugas, pengingat, atau pertanyaan teknis hari ini?';
+    }
 
     if (finalText) {
       ChatHistoryRepository.save(chatId, 'user', text);
