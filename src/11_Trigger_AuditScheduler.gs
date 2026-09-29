@@ -3,44 +3,52 @@
  * Tanggung jawab: menjalankan audit terjadwal otomatis.
  * - Setiap Senin jam 07:00 WIB → audit ringan
  * - Setiap tanggal 1 jam 07:00 WIB → audit penuh
+ * 
+ * Implementasi: trigger harian jam 07:00, lalu cek tanggal/hari di dalam fungsi.
+ * (GAS tidak mendukung trigger onMonthDay secara langsung)
  */
 var AuditScheduler = {
 
-  /**
-   * Dipanggil oleh time-based trigger.
-   * Otomatis menentukan jenis audit berdasarkan tanggal.
-   */
   runScheduledAudit: function() {
-    AppLogger.info('AUDIT_TRIGGER', 'Scheduled audit started');
+    var now = DateTimeUtils.nowWIB();
+    var dayOfMonth = now.getDate();
+    var dayOfWeek = now.getDay();
 
-    try {
-      CodeAuditor.runScheduledAudit();
-    } catch (e) {
-      AppLogger.error('AUDIT_TRIGGER_FAIL', e.message);
+    if (dayOfMonth === 1) {
+      AppLogger.info('AUDIT_TRIGGER', 'Monthly full audit (tanggal 1)');
+      try {
+        CodeAuditor.runAudit('full');
+      } catch (e) {
+        AppLogger.error('AUDIT_MONTHLY_FAIL', e.message);
+      }
+      return;
     }
+
+    if (dayOfWeek === 1) {
+      AppLogger.info('AUDIT_TRIGGER', 'Weekly light audit (Senin)');
+      try {
+        CodeAuditor.runScheduledAudit();
+      } catch (e) {
+        AppLogger.error('AUDIT_WEEKLY_FAIL', e.message);
+      }
+      return;
+    }
+
+    AppLogger.info('AUDIT_TRIGGER', 'Skipped (bukan Senin dan bukan tanggal 1)');
   },
 
-  /**
-   * Setup trigger mingguan (Senin 07:00 WIB).
-   * Jalankan fungsi ini SEKALI dari editor GAS untuk mengaktifkan.
-   */
-
-  setupWeeklyTrigger: function() {
+  setupDailyTrigger: function() {
     this._deleteExistingTriggers();
 
     ScriptApp.newTrigger('runScheduledAuditWrapper')
       .timeBased()
-      .onWeekDay(ScriptApp.WeekDay.MONDAY)
       .atHour(7)
+      .everyDays(1)
       .create();
 
-    AppLogger.info('AUDIT_TRIGGER_SETUP', 'Weekly trigger created (Senin 07:00)');
-    Logger.log('✅ Trigger audit mingguan berhasil dibuat!');
+    AppLogger.info('AUDIT_TRIGGER_SETUP', 'Daily trigger created (07:00 WIB)');
   },
 
-  /**
-   * Hapus trigger lama agar tidak duplikat.
-   */
   _deleteExistingTriggers: function() {
     var triggers = ScriptApp.getProjectTriggers();
     triggers.forEach(function(trigger) {
@@ -51,14 +59,10 @@ var AuditScheduler = {
   }
 };
 
-/**
- * Wrapper global untuk trigger.
- * GAS trigger hanya bisa memanggil fungsi global, bukan method object.
- */
 function runScheduledAuditWrapper() {
   AuditScheduler.runScheduledAudit();
 }
 
 function setupWeeklyTrigger() {
-  AuditScheduler.setupWeeklyTrigger();
+  AuditScheduler.setupDailyTrigger();
 }
