@@ -1,6 +1,15 @@
+/**
+ * ===================================================================
+ * MANAGER: RE-ACT AUTONOMOUS AGENT ENGINE
+ * Tanggung jawab: Mengelola alur pemikiran agen (Plan -> Act -> Observe),
+ * eksekusi tools secara dinamis, dan respon transparan tanpa hardcode.
+ * ===================================================================
+ */
 const Manager = {
+
   processConversationalMessage(chatId, text) {
     try {
+      // 1. Pengecekan approval pending draft SelfDocSync
       var pendingDraft = SelfDocSync.getPendingDraft();
       if (pendingDraft) {
         var approvalAction = SelfDocSync.parseApproval(text);
@@ -9,93 +18,198 @@ const Manager = {
         }
       }
 
+      // 2. Pengecekan command eksplisit (/ingat, /diagnose, dll)
       if (CommandRouter.isKnownCommand(text)) {
         return CommandRouter.handle(chatId, text);
       }
+
+      // 3. Ambil konteks selektif (ringan & cepat)
       var context = this._gatherContext();
-      var intent = IntentAnalyzer.analyze(text, context);
 
-      if (!intent || !intent.tipe) {
-        return this._handleIntentFailure(chatId, text, context.riwayat);
-      }
+      // 4. Jalankan ReAct Agent Planning Loop (Autonomous Execution)
+      return this._planAndExecute(chatId, text, context);
 
-      this._persistAutoFacts(chatId, intent);
-      try {
-        SoulMemory.recordEpisode('intent_processed', intent.tipe, 'success', null, null);
-      } catch (e) { /* silent */ }
-      return this._routeIntent(chatId, text, intent, context);
     } catch (err) {
       AppLogger.error('MANAGER_PROCESS_ERROR', JSON.stringify({
         chatId: chatId,
         error: err.message,
         stack: err.stack
       }));
+      return this._askLLMWithKnowledge(chatId, text, 'chat', 'error', { code: 'CRITICAL_MANAGER_ERROR', message: err.message });
     }
   },
 
+  /**
+   * Selective Context Gathering: Memangkas beban token agar respon cepat & ringan
+   */
   _gatherContext() {
     return {
-      riwayat: ChatHistoryRepository.getRecent(15),
-      facts: KnowledgeSpecialist.getActiveFactsForPrompt(50),
-      profile: UserProfileSpecialist.getProfileForPrompt(30),
-      ltm: MemorySpecialist.getLongTermMemory(7),
+      riwayat: ChatHistoryRepository.getRecent(10),
+      facts: KnowledgeSpecialist.getActiveFactsForPrompt(15),
+      profile: UserProfileSpecialist.getProfileForPrompt(10),
+      ltm: MemorySpecialist.getLongTermMemory(3),
       reminderMenunggu: ReminderSpecialist.getMenungguRespon(),
-      ackPatterns: ReminderSpecialist.getAckPatternsForPrompt(10)
+      ackPatterns: ReminderSpecialist.getAckPatternsForPrompt(5)
     };
   },
 
-  _persistAutoFacts(chatId, intent) {
-    if (intent.factsBaru && intent.factsBaru.length > 0)
-      KnowledgeSpecialist.saveAutoDetectedFacts(chatId, intent.factsBaru);
-    if (intent.profileUpdates && intent.profileUpdates.length > 0)
-      UserProfileSpecialist.saveUpdates(intent.profileUpdates);
+  /**
+   * AUTONOMOUS AGENT RE-ACT LOOP (Plan -> Act -> Observe)
+   * Maksimal 3 Langkah per pesan
+   */
+  _planAndExecute(chatId, userText, context) {
+    var maxSteps = 3;
+    var step = 1;
+    var observations = [];
+    var lastToolResult = null;
+
+    while (step <= maxSteps) {
+      AppLogger.info('AGENT_STEP_START', 'step:' + step + '|user:' + userText.substring(0, 50));
+
+      var planPrompt = this._buildPlanningPrompt(userText, context, observations);
+      var llmResult = LLMProviderService.generate({
+        taskType: 'chat_heavy',
+        systemInstruction: planPrompt,
+        messages: [{ role: 'user', text: userText }],
+        temperature: 0.3
+      });
+
+      if (!llmResult || !llmResult.text) {
+        AppLogger.warning('AGENT_PLAN_FAIL', 'step:' + step + '|llm_empty');
+        break;
+      }
+
+      var plan = this._parseAgentPlan(llmResult.text);
+      if (!plan || !plan.action) {
+        AppLogger.warning('AGENT_PLAN_PARSE_FAIL', 'step:' + step + '|raw:' + llmResult.text.substring(0, 100));
+        break;
+      }
+
+      AppLogger.info('AGENT_THOUGHT', 'step:' + step + '|thought:' + (plan.thought || '-'));
+
+      // Skenario A: Agen memutuskan memberikan Jawaban Akhir
+      if (plan.action === 'final_answer' || plan.action === 'chat') {
+        var finalResponse = plan.final_answer || plan.jawabanChat || (plan.tool_params && plan.tool_params.jawabanChat) || null;
+        if (finalResponse) {
+          ChatHistoryRepository.save(chatId, 'user', userText);
+          ChatHistoryRepository.save(chatId, 'ai', finalResponse);
+          return finalResponse;
+        }
+        break;
+      }
+
+      // Skenario B: Agen memilih Tool dari Registry
+      AppLogger.info('AGENT_ACTION_SELECT', 'step:' + step + '|tool:' + plan.action);
+      var toolResult = this._executeTool(plan.action, plan.tool_params || {}, chatId, userText, context);
+
+      // Simpan observasi untuk langkah berikutnya
+      observations.push({
+        step: step,
+        thought: plan.thought,
+        toolUsed: plan.action,
+        paramsUsed: plan.tool_params,
+        outcome: toolResult
+      });
+
+      lastToolResult = toolResult;
+
+      // Jika tool langsung mengembalikan string respons final (seperti _askLLMWithKnowledge)
+      if (typeof toolResult === 'string' && toolResult.length > 0) {
+        return toolResult;
+      }
+
+      step++;
+    }
+
+    // Fallback Transparan: Jika ReAct loop tidak selesai / gagal
+    AppLogger.warning('AGENT_FALLBACK_TRIGGERED', 'userText:' + userText);
+    return this._handleFallback(chatId, userText, context, observations, lastToolResult);
   },
 
-  _routeIntent(chatId, text, intent, context) {
-    if (intent.tipe === 'catat_keuangan')
-      return this._handleCatatKeuangan(chatId, text, intent);
-    if (intent.tipe === 'tanya_saldo')
-      return this._handleTanyaSaldo(chatId, text, intent);
-    if (intent.tipe === 'ringkasan_keuangan')
-      return this._handleRingkasanKeuangan(chatId, text, intent);
-    if (intent.tipe === 'atur_budget')
-      return this._handleAturBudget(chatId, text, intent);
-    if (intent.tipe === 'edit_transaksi')
-      return this._handleEditTransaksi(chatId, text, intent);
-    if (intent.tipe === 'sync_documentation')
-      return this._handleSyncDocumentation(chatId, text, intent);
-    if (intent.tipe === 'ack_reminder' && context.reminderMenunggu.length > 0)
-      return this._handleAckReminder(chatId, text, intent, context);
-    if (intent.tipe === 'buat_reminder')
-      return this._handleBuatReminder(intent);
-    if (intent.tipe === 'diagnose_error')
-      return this._handleDiagnoseError(chatId, text, intent);
-    if (intent.tipe === 'update_docs')
-      return this._handleUpdateDocs(chatId, text, intent);
-    if (intent.tipe === 'audit_code')
-      return this._handleAuditCode(chatId, text, intent);
-    if (intent.tipe === 'fix_audit')
-      return this._handleFixAudit(chatId, text, intent);
-    if (intent.tipe === 'check_changes')
-      return this._handleCheckChanges(chatId, text, intent);
-    if (intent.tipe === 'roadmap_query')
-      return this._handleRoadmapQuery(chatId, text, intent);
-    if (intent.tipe === 'implement_feature')
-      return this._handleImplementFeature(chatId, text, intent);
-    if (intent.tipe === 'self_query')
-      return this._handleSelfQuery(chatId, text, intent);
-    if (intent.tipe === 'soul_query')
-      return this._handleSoulQuery(chatId, text, intent);
-    if (intent.tipe === 'soul_init')
-      return this._handleSoulInit(chatId, text);
-    if (intent.tipe === 'backup_knowledge')
-      return this._handleBackupKnowledge(chatId, text);
-    if (intent.tipe === 'restore_knowledge')
-      return this._handleRestoreKnowledge(chatId, text);
-    if (intent.tipe === 'soul_memory_query')
-      return this._handleSoulMemoryQuery(chatId, text, intent);
+  /**
+   * Bridge Eksekusi Deterministik Tool
+   */
+  _executeTool(toolName, params, chatId, userText, context) {
+    try {
+      var intentMock = { tipe: toolName, keuangan: params, diagnose_error: params, update_docs: params, audit_code: params, fix_audit: params, check_changes: params, roadmap_query: params, implement_feature: params, self_query: params, searchQuery: params.searchQuery, jawabanChat: params.jawabanChat };
 
-    return this._handleChatBiasa(chatId, text, intent, context.riwayat);
+      if (toolName === 'catat_keuangan') return this._handleCatatKeuangan(chatId, userText, intentMock);
+      if (toolName === 'tanya_saldo') return this._handleTanyaSaldo(chatId, userText, intentMock);
+      if (toolName === 'ringkasan_keuangan') return this._handleRingkasanKeuangan(chatId, userText, intentMock);
+      if (toolName === 'atur_budget') return this._handleAturBudget(chatId, userText, intentMock);
+      if (toolName === 'edit_transaksi') return this._handleEditTransaksi(chatId, userText, intentMock);
+      if (toolName === 'sync_documentation') return this._handleSyncDocumentation(chatId, userText, intentMock);
+      if (toolName === 'ack_reminder') return this._handleAckReminder(chatId, userText, intentMock, context);
+      if (toolName === 'buat_reminder') return this._handleBuatReminder(intentMock);
+      if (toolName === 'diagnose_error') return this._handleDiagnoseError(chatId, userText, intentMock);
+      if (toolName === 'update_docs') return this._handleUpdateDocs(chatId, userText, intentMock);
+      if (toolName === 'audit_code') return this._handleAuditCode(chatId, userText, intentMock);
+      if (toolName === 'fix_audit') return this._handleFixAudit(chatId, userText, intentMock);
+      if (toolName === 'check_changes') return this._handleCheckChanges(chatId, userText, intentMock);
+      if (toolName === 'roadmap_query') return this._handleRoadmapQuery(chatId, userText, intentMock);
+      if (toolName === 'implement_feature') return this._handleImplementFeature(chatId, userText, intentMock);
+      if (toolName === 'self_query') return this._handleSelfQuery(chatId, userText, intentMock);
+      if (toolName === 'web_search') return this._handleChatWithWebSearch(userText, intentMock, context.riwayat);
+
+      return this._handleChatBiasa(chatId, userText, intentMock, context.riwayat);
+
+    } catch (err) {
+      AppLogger.error('TOOL_EXECUTION_ERROR', 'tool:' + toolName + '|error:' + err.message);
+      return { success: false, error: err.message, tool: toolName };
+    }
+  },
+
+  _buildPlanningPrompt(userText, context, observations) {
+    var persona = KnowledgeRepository.get('soul', 'system_persona') || KnowledgeRepository.get('intent', 'persona') || '';
+    var toolsRegistry = KnowledgeRepository.get('tools', 'registry') || '[]';
+    var template = KnowledgeRepository.get('agent', 'planning_prompt');
+
+    var nowStr = DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB());
+
+    var variables = {
+      persona: persona,
+      now: nowStr,
+      tools_registry: toolsRegistry,
+      riwayat: IntentAnalyzer._formatRiwayat(context.riwayat),
+      fakta: IntentAnalyzer._formatList(context.facts),
+      profil: IntentAnalyzer._formatList(context.profile),
+      ltm: IntentAnalyzer._formatList(context.ltm),
+      observations: JSON.stringify(observations, null, 2),
+      user_message: userText
+    };
+
+    if (template) {
+      return TemplateEngine.render(template, variables);
+    }
+
+    return persona + '\nTools: ' + toolsRegistry + '\nUser: ' + userText;
+  },
+
+  _parseAgentPlan(rawText) {
+    var cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch (e) {
+      try {
+        var repaired = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        return JSON.parse(repaired);
+      } catch (e2) {
+        return null;
+      }
+    }
+  },
+
+  _handleFallback(chatId, userText, context, observations, lastToolResult) {
+    // Jika ada error di observasi, sampaikan secara jujur
+    if (lastToolResult && typeof lastToolResult === 'object' && lastToolResult.error) {
+      return this._askLLMWithKnowledge(chatId, userText, 'chat', 'error', {
+        code: 'TOOL_EXECUTION_FAILED',
+        tool: lastToolResult.tool,
+        error: lastToolResult.error
+      });
+    }
+
+    return this._handleChatBiasa(chatId, userText, { tipe: 'chat_biasa', complexity: 'light' }, context.riwayat);
   },
 
   _handleSyncApproval(chatId, text, action) {
@@ -153,8 +267,7 @@ const Manager = {
   _askLLMWithKnowledge(chatId, userText, namespace, key, rawData) {
     var template = KnowledgeRepository.get(namespace, key);
     if (!template) {
-      AppLogger.error('MANAGER_KNOWLEDGE_MISSING', namespace + ':' + key);
-      return null;
+      template = 'Response: {{data}}';
     }
 
     var systemInstruction = TemplateEngine.render(template, {
