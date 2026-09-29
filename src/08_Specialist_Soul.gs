@@ -1,3 +1,10 @@
+/**
+ * ===================================================================
+ * SPESIALIS: SOUL & SOUL MEMORY
+ * Tanggung jawab: Pengelolaan identitas dinamis, kesadaran diri,
+ * memori episodik, dan meta-insights agen (Vexa).
+ * ===================================================================
+ */
 const SoulSpecialist = {
   NAMESPACE: 'soul',
 
@@ -30,11 +37,11 @@ const SoulSpecialist = {
     });
 
     var emptyIdentity = JSON.stringify({
-      name: null,
-      traits: [],
-      values: [],
-      communication_style: null,
-      relationship_with_developer: null
+      name: 'Vexa',
+      traits: ['Mandiri', 'Objektif', 'Penolong'],
+      values: ['Kebenaran', 'Kejujuran', 'Presisi'],
+      communication_style: 'Natural dan santun',
+      relationship_with_developer: 'Asisten Developer Senior'
     });
 
     var emptyBeliefs = JSON.stringify([]);
@@ -175,183 +182,108 @@ const SoulSpecialist = {
   }
 };
 
-function runFullCodeAudit() {
-  var scriptId = ScriptApp.getScriptId();
-  var token = ScriptApp.getOAuthToken();
-  var url = 'https://script.googleapis.com/v1/projects/' + scriptId + '/content';
+const SoulMemory = {
+  EPISODIC_SHEET: 'Soul_Episodic_Memory',
+  META_SHEET: 'Soul_Meta_Memory',
+  EPISODIC_HEADERS: ['id', 'timestamp', 'event_type', 'context', 'outcome', 'emotional_state', 'details'],
+  META_HEADERS: ['id', 'timestamp', 'insight', 'source', 'confidence', 'applied'],
 
-  var response;
-  try {
-    response = UrlFetchApp.fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + token },
-      muteHttpExceptions: true
+  _ensureSheets() {
+    SpreadsheetGateway.ensureSheet(this.EPISODIC_SHEET, this.EPISODIC_HEADERS);
+    SpreadsheetGateway.ensureSheet(this.META_SHEET, this.META_HEADERS);
+  },
+
+  recordEpisode(eventType, context, outcome, emotionalState, details) {
+    try {
+      this._ensureSheets();
+      var id = IdGenerator.generate('EP');
+      var now = DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB());
+      SpreadsheetGateway.appendRowSafe(this.EPISODIC_SHEET, [
+        id,
+        now,
+        eventType || 'unknown',
+        context || '',
+        outcome || '',
+        emotionalState || '',
+        details || ''
+      ]);
+    } catch (e) {
+      AppLogger.warning('SOUL_EPISODE_RECORD_FAIL', e.message);
+    }
+  },
+
+  getRecentEpisodes(limit) {
+    try {
+      this._ensureSheets();
+      var sheet = SpreadsheetGateway.getSheet(this.EPISODIC_SHEET);
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) return [];
+      var rows = data.slice(1);
+      var start = Math.max(0, rows.length - (limit || 20));
+      return rows.slice(start).map(function(r) {
+        return {
+          id: r[0],
+          timestamp: r[1],
+          event_type: r[2],
+          context: r[3],
+          outcome: r[4],
+          emotional_state: r[5],
+          details: r[6]
+        };
+      });
+    } catch (e) {
+      AppLogger.warning('SOUL_EPISODE_READ_FAIL', e.message);
+      return [];
+    }
+  },
+
+  getEpisodesByType(eventType, limit) {
+    var all = this.getRecentEpisodes(200);
+    var filtered = all.filter(function(ep) {
+      return ep.event_type === eventType;
     });
-  } catch (e) {
-    Logger.log(JSON.stringify({ status: 'FETCH_ERROR', message: e.message }));
-    return;
-  }
+    return filtered.slice(-(limit || 10));
+  },
 
-  if (response.getResponseCode() !== 200) {
-    Logger.log(JSON.stringify({
-      status: 'API_ERROR',
-      code: response.getResponseCode(),
-      body: response.getContentText().substring(0, 500)
-    }));
-    return;
-  }
-
-  var projectData = JSON.parse(response.getContentText());
-  var allFiles = projectData.files || [];
-  var gsFiles = allFiles.filter(function(f) { return f.type === 'SERVER_JS'; });
-
-  var report = {
-    timestamp: new Date().toISOString(),
-    total_files: gsFiles.length,
-    total_loc: 0,
-    total_methods: 0,
-    issues: [],
-    files: []
-  };
-
-  var allMethodDefs = {};
-  var allMethodCalls = {};
-  var allModuleRefs = {};
-
-  for (var i = 0; i < gsFiles.length; i++) {
-    var f = gsFiles[i];
-    var name = f.name || 'unknown';
-    var source = f.source || '';
-    var lines = source.split('\n');
-    var loc = lines.length;
-    report.total_loc += loc;
-
-    var methods = [];
-    var stringViolations = [];
-    var emojiViolations = [];
-    var hardcodedSecrets = [];
-    var missingTryCatch = [];
-
-    for (var l = 0; l < lines.length; l++) {
-      var line = lines[l];
-      var trimmed = line.trim();
-
-      // Extract methods
-      var m1 = trimmed.match(/^(\w+)\s*[:=]\s*function\s*\(([^)]*)\)/);
-      if (m1) {
-        methods.push(m1[1]);
-        allMethodDefs[m1[1]] = name;
-        continue;
-      }
-      var m2 = trimmed.match(/^function\s+(\w+)\s*\(([^)]*)\)/);
-      if (m2) {
-        methods.push(m2[1]);
-        allMethodDefs[m2[1]] = name;
-      }
-
-      // Detect string violations (human language in code)
-      var strings = trimmed.match(/'([^'\\]{20,})'|"([^"\\]{20,})"/g) || [];
-      for (var s = 0; s < strings.length; s++) {
-        var str = strings[s].slice(1, -1);
-        if (str.indexOf('http') === 0) continue;
-        if (str.indexOf('{{') >= 0) continue;
-        if (str.indexOf('application/') >= 0) continue;
-        if (str.indexOf('Bearer ') === 0) continue;
-        if (/^[A-Z_]+$/.test(str)) continue;
-        if (/^\d{4}-\d{2}-\d{2}/.test(str)) continue;
-        if (str.indexOf('===') >= 0) continue;
-        if (str.indexOf('function') >= 0) continue;
-        if (/[\u{1F300}-\u{1FAD6}]/u.test(str)) {
-          emojiViolations.push({ line: l + 1, text: str.substring(0, 50) });
-        }
-        var wordCount = str.split(/\s+/).length;
-        if (wordCount >= 4 && /[a-zA-Z]{3,}/.test(str)) {
-          stringViolations.push({ line: l + 1, text: str.substring(0, 60) });
-        }
-      }
-
-      // Detect hardcoded secrets
-      if (/api[_-]?key\s*[:=]\s*['"][A-Za-z0-9_-]{10,}['"]/i.test(trimmed)) {
-        hardcodedSecrets.push({ line: l + 1 });
-      }
-      if (/token\s*[:=]\s*['"][A-Za-z0-9_-]{20,}['"]/i.test(trimmed)) {
-        hardcodedSecrets.push({ line: l + 1 });
-      }
+  addMetaInsight(insight, source, confidence) {
+    try {
+      this._ensureSheets();
+      var id = IdGenerator.generate('MI');
+      var now = DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB());
+      SpreadsheetGateway.appendRowSafe(this.META_SHEET, [
+        id,
+        now,
+        insight,
+        source || '',
+        confidence || 0.5,
+        false
+      ]);
+    } catch (e) {
+      AppLogger.warning('SOUL_META_RECORD_FAIL', e.message);
     }
+  },
 
-    // Detect module references
-    var modulePattern = /([A-Z][a-zA-Z]+)\.(\w+)\s*\(/g;
-    var match;
-    while ((match = modulePattern.exec(source)) !== null) {
-      var modName = match[1];
-      var methodName = match[2];
-      if (!allModuleRefs[modName]) allModuleRefs[modName] = [];
-      if (allModuleRefs[modName].indexOf(methodName) === -1) {
-        allModuleRefs[modName].push(methodName);
-      }
-      var callKey = modName + '.' + methodName;
-      if (!allMethodCalls[callKey]) allMethodCalls[callKey] = [];
-      allMethodCalls[callKey].push(name);
-    }
-
-    report.total_methods += methods.length;
-
-    var fileReport = {
-      file: name,
-      loc: loc,
-      methods: methods.length
-    };
-
-    if (stringViolations.length > 0) {
-      fileReport.string_violations = stringViolations.length;
-      fileReport.string_samples = stringViolations.slice(0, 3);
-      report.issues.push({ file: name, type: 'STRING_VIOLATION', count: stringViolations.length });
-    }
-    if (emojiViolations.length > 0) {
-      fileReport.emoji_violations = emojiViolations.length;
-      fileReport.emoji_samples = emojiViolations.slice(0, 3);
-      report.issues.push({ file: name, type: 'EMOJI_IN_CODE', count: emojiViolations.length });
-    }
-    if (hardcodedSecrets.length > 0) {
-      fileReport.hardcoded_secrets = hardcodedSecrets.length;
-      report.issues.push({ file: name, type: 'HARDCODED_SECRET', count: hardcodedSecrets.length });
-    }
-
-    report.files.push(fileReport);
-  }
-
-  // Cross-file analysis: detect orphan modules
-  var knownModules = Object.keys(allModuleRefs);
-  var definedModules = {};
-  for (var k in allMethodDefs) {
-    if (allMethodDefs.hasOwnProperty(k)) {
-      definedModules[allMethodDefs[k]] = true;
+  getMetaInsights(limit) {
+    try {
+      this._ensureSheets();
+      var sheet = SpreadsheetGateway.getSheet(this.META_SHEET);
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) return [];
+      var rows = data.slice(1);
+      var start = Math.max(0, rows.length - (limit || 20));
+      return rows.slice(start).map(function(r) {
+        return {
+          id: r[0],
+          timestamp: r[1],
+          insight: r[2],
+          source: r[3],
+          confidence: r[4],
+          applied: r[5]
+        };
+      });
+    } catch (e) {
+      AppLogger.warning('SOUL_META_READ_FAIL', e.message);
+      return [];
     }
   }
-
-  report.summary = {
-    total_files: gsFiles.length,
-    total_loc: report.total_loc,
-    total_methods: report.total_methods,
-    total_issues: report.issues.length,
-    issue_types: {}
-  };
-
-  for (var q = 0; q < report.issues.length; q++) {
-    var t = report.issues[q].type;
-    report.summary.issue_types[t] = (report.summary.issue_types[t] || 0) + 1;
-  }
-
-  var output = JSON.stringify(report, null, 2);
-
-  // Split output jika terlalu besar untuk Logger
-  var maxChunk = 45000;
-  if (output.length <= maxChunk) {
-    Logger.log(output);
-  } else {
-    var chunks = Math.ceil(output.length / maxChunk);
-    for (var c = 0; c < chunks; c++) {
-      Logger.log('=== CHUNK ' + (c + 1) + '/' + chunks + ' ===');
-      Logger.log(output.substring(c * maxChunk, (c + 1) * maxChunk));
-    }
-  }
-}
+};
