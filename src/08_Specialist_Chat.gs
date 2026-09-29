@@ -1,6 +1,6 @@
 /**
  * ===================================================================
- * SPESIALIS: CHAT (UNIFIED PERSONA)
+ * SPESIALIS: CHAT (UNIFIED PERSONA WITH DYNAMIC RENDERING)
  * Tanggung jawab: Mengelola kepribadian tanggapan obrolan biasa
  * dan percakapan berbasis konteks web search.
  * ===================================================================
@@ -8,17 +8,65 @@
 const ChatSpecialist = {
 
   /**
-   * Mengambil System Persona secara dinamis dari Knowledge Repository (Single Source of Truth)
+   * Mengambil dan MERENDER System Persona secara dinamis dengan data identitas nyata
    */
   buildSystemPersona() {
-    var persona = KnowledgeRepository.get('soul', 'system_persona');
-    if (!persona) {
-      persona = KnowledgeRepository.get('intent', 'persona');
+    var rawTemplate = KnowledgeRepository.get('soul', 'system_persona');
+    if (!rawTemplate) {
+      rawTemplate = KnowledgeRepository.get('intent', 'persona');
     }
-    if (!persona) {
-      persona = 'Kamu adalah AI Agent mandiri, jujur, objektif, dan presisi dalam Bahasa Indonesia.';
+    if (!rawTemplate) {
+      rawTemplate = 'Kamu adalah AI Agent mandiri, jujur, objektif, dan presisi dalam Bahasa Indonesia.';
     }
-    return persona;
+
+    // 1. Ambil data identitas nyata dari Soul / UserProfile
+    var aiName = '';
+    var traits = '-';
+    var values = '-';
+
+    try {
+      if (typeof SoulSpecialist !== 'undefined' && SoulSpecialist.getIdentity) {
+        var soulIdentity = SoulSpecialist.getIdentity();
+        if (soulIdentity && soulIdentity.name) {
+          aiName = soulIdentity.name;
+        }
+      }
+    } catch (e) {}
+
+    // Fallback pencarian nama di UserProfile jika Soul belum terisi
+    if (!aiName) {
+      try {
+        var profileItems = UserProfileSpecialist.getByCategory('identitas') || [];
+        for (var i = 0; i < profileItems.length; i++) {
+          if (profileItems[i].key === 'ai_name' && profileItems[i].value) {
+            aiName = profileItems[i].value;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Isikan data ke variabel template
+    var basePersona = KnowledgeRepository.get('intent', 'persona') || 'AI Agent mandiri dan presisi.';
+    var variables = {
+      persona: basePersona,
+      name: aiName ? aiName : 'Belum diatur',
+      traits: traits,
+      values: values,
+      communication_style: 'Natural dan santun',
+      beliefs: '-',
+      weaknesses: '-'
+    };
+
+    var rendered = TemplateEngine.render(rawTemplate, variables);
+
+    // 3. Jika nama sudah ada, bersihkan aturan "masih tahap awal" agar LLM tidak bingung/halu
+    if (aiName) {
+      rendered = rendered.replace(/Jika data identitas masih kosong.*$/gm, '');
+      rendered += '\n\nIDENTITAS RESMI: Namamu adalah ' + aiName + '. Selalu akui dan gunakan nama ini jika ditanya oleh user.';
+    }
+
+    return rendered;
   },
 
   needsWebSearch(intent) {
