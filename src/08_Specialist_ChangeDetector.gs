@@ -19,7 +19,6 @@ var ChangeDetector = {
     var changes = this._compareWithSnapshot(currentFiles, snapshot);
 
     if (changes.total === 0) {
-      // Meskipun tidak ada perubahan kode, tetap cek roadmap sync
       if (detectionMode === 'full') {
         var syncResult = ProjectBrain.syncRoadmapWithCode();
         if (syncResult) {
@@ -29,7 +28,7 @@ var ChangeDetector = {
       return '✅ Tidak ada perubahan kode sejak pengecekan terakhir. Semua stabil!';
     }
 
-    var report = this._buildReport(changes, currentFiles);
+    var report = this._buildReport(changes);
 
     if (detectionMode === 'full') {
       var docSync = this._checkDocSync(changes);
@@ -39,7 +38,6 @@ var ChangeDetector = {
         report += '\nMau aku update dokumentasi agar sesuai?';
       }
 
-      // Auto-sync roadmap dengan kode
       var syncResult = ProjectBrain.syncRoadmapWithCode();
       if (syncResult) {
         report += '\n\n🗺️ *Roadmap Sync:*\n' + syncResult;
@@ -65,10 +63,9 @@ var ChangeDetector = {
       if (changes.total === 0) {
         report += 'Tidak ada perubahan kode minggu ini.\n';
       } else {
-        report += this._buildReport(changes, currentFiles) + '\n';
+        report += this._buildReport(changes) + '\n';
       }
 
-      // Selalu sync roadmap saat scheduled
       var syncResult = ProjectBrain.syncRoadmapWithCode();
       if (syncResult) {
         report += '\n🗺️ *Roadmap Sync:*\n' + syncResult;
@@ -96,15 +93,30 @@ var ChangeDetector = {
   _getCurrentFiles: function() {
     var allSource = GitHubOpsService.readAllSourceFiles();
     var result = {};
-    Object.keys(allSource).forEach(function(name) {
-      if (name !== 'appsscript.json') {
+    
+    if (allSource) {
+      Object.keys(allSource).forEach(function(name) {
         result[name] = {
           content: allSource[name].content,
           sha: allSource[name].sha,
           hash: this._simpleHash(allSource[name].content)
         };
+      }.bind(this));
+    }
+
+    try {
+      var manifestData = GitHubOpsService.readFile('src/appsscript.json') || GitHubOpsService.readFile('appsscript.json');
+      if (manifestData && manifestData.content) {
+        result['appsscript.json'] = {
+          content: manifestData.content,
+          sha: manifestData.sha,
+          hash: this._simpleHash(manifestData.content)
+        };
       }
-    }.bind(this));
+    } catch (e) {
+      AppLogger.warning('MANIFEST_READ_WARN', e.message);
+    }
+
     return result;
   },
 
@@ -195,11 +207,13 @@ var ChangeDetector = {
     var all = changes.added.concat(changes.modified);
     all.forEach(function(f) {
       if (f.indexOf('08_Specialist_') === 0)
-        issues.push('Specialist baru/berubah: `' + f + '` — cek ARCHITECTURE.md §4');
+        issues.push('Specialist baru/berubah: `' + f + '` — cek ARCHITECTURE.md');
       if (f.indexOf('11_Trigger_') === 0)
-        issues.push('Trigger baru/berubah: `' + f + '` — cek ARCHITECTURE.md §5');
+        issues.push('Trigger baru/berubah: `' + f + '` — cek ARCHITECTURE.md');
       if (f.indexOf('04_Repository_') === 0)
-        issues.push('Repository baru/berubah: `' + f + '` — cek ARCHITECTURE.md §6');
+        issues.push('Repository baru/berubah: `' + f + '` — cek ARCHITECTURE.md');
+      if (f === 'appsscript.json')
+        issues.push('Manifest konfigurasi berubah: `' + f + '` — cek izin OAuth / timezone');
     });
     return issues;
   }
