@@ -1,8 +1,8 @@
 /**
  * ===================================================================
- * SPESIALIS: SELF-AWARENESS (FULL CANONICAL DOCS INGESTION & LINE INDEX)
- * Tanggung jawab: Mengindeks file .gs fisik, objek, metode, dan nomor baris,
- * serta menyajikan seluruh 5 dokumen .md kanonik.
+ * SPESIALIS: SELF-AWARENESS (TIME-AWARE SELF-AUDIT & CODE INDEXER)
+ * Tanggung jawab: Mengindeks file .gs fisik, objek, metode, nomor baris,
+ * menyajikan 5 dokumen .md kanonik, dan mengekstrak log aktivitas N jam terakhir.
  * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
@@ -18,6 +18,62 @@ const SelfAwareness = {
       timestamp: DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB()),
       system_metrics: metrics
     };
+  },
+
+  getTimeWindowActivityLogs(hoursWindow) {
+    var targetHours = hoursWindow || 7;
+    var now = DateTimeUtils.nowWIB();
+    var maxWindowMs = targetHours * 3600 * 1000;
+
+    try {
+      var sheet = SpreadsheetGateway.getSheet('Log_System');
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) {
+        return { hoursWindow: targetHours, eventCount: 0, eventsSummary: {} };
+      }
+
+      var recentEventsSummary = {};
+      var detailedEventList = [];
+      var totalEventsInWindow = 0;
+
+      for (var i = data.length - 1; i >= 1; i--) {
+        var rawTimestamp = data[i][0];
+        if (!rawTimestamp) continue;
+
+        var logDate = rawTimestamp instanceof Date ? rawTimestamp : new Date(rawTimestamp);
+        if (isNaN(logDate.getTime())) continue;
+
+        var diffMs = now.getTime() - logDate.getTime();
+        if (diffMs > maxWindowMs) break;
+
+        var eventName = String(data[i][1] || 'UNKNOWN').trim();
+        var eventDetail = String(data[i][2] || '').trim().substring(0, 150);
+        var eventStatus = String(data[i][3] || 'INFO').trim();
+
+        totalEventsInWindow++;
+        recentEventsSummary[eventName] = (recentEventsSummary[eventName] || 0) + 1;
+
+        if (detailedEventList.length < 15) {
+          detailedEventList.push({
+            time: DateTimeUtils.formatWaktu(logDate),
+            event: eventName,
+            detail: eventDetail,
+            status: eventStatus
+          });
+        }
+      }
+
+      return {
+        hoursWindow: targetHours,
+        totalEvents: totalEventsInWindow,
+        eventsSummary: recentEventsSummary,
+        recentEventsList: detailedEventList
+      };
+
+    } catch (e) {
+      AppLogger.error('SELF_AWARENESS_TIME_LOG_FAIL', e.message);
+      return { hoursWindow: targetHours, totalEvents: 0, eventsSummary: {} };
+    }
   },
 
   buildCodeLineIndex() {
@@ -122,10 +178,8 @@ const SelfAwareness = {
   },
 
   _gatherSelfData() {
-    // Ambil Stack Contract dari Database Knowledge (Auto-Bootstrap jika belum ada)
     var stackContractRaw = KnowledgeRepository.get('soul', 'stack_contract');
     var stackContract = null;
-    
     if (stackContractRaw) {
       try { stackContract = JSON.parse(stackContractRaw); } catch (e) {}
     }
@@ -143,6 +197,7 @@ const SelfAwareness = {
 
     var data = {
       stackContract: stackContract,
+      recent7HoursActivity: this.getTimeWindowActivityLogs(7),
       codeStructure: {},
       fileList: [],
       codeLineIndexSample: [],
@@ -155,7 +210,7 @@ const SelfAwareness = {
         'fix_audit', 'check_changes', 'roadmap_query', 'implement_feature',
         'self_query', 'soul_query', 'soul_init', 'soul_memory_query'
       ],
-      commandList: ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory', '/export_ns', '/help', '/llm'],
+      commandList: ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory', '/export_ns', '/help', '/llm', '/audit', '/heal'],
       errorLogs: [],
       logStats: { total: 0, errors: 0, errorRatePercent: 0 },
       userKnowledge: { facts: [], profile: [] }
