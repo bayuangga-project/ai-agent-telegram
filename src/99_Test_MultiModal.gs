@@ -69,3 +69,68 @@ function test_SelfAwarenessGroundingAndVisionChain() {
     Logger.log('❌ FAIL: Vision Prompt gagal');
   }
 }
+
+/**
+ * DIAGNOSTIC TEST: Menguji respon Gemini & OpenRouter Vision API secara presisi
+ */
+function test_VisionAPI_FullDiagnostic() {
+  Logger.log('=== TEST DIAGNOSTIK VISION API (GEMINI & OPENROUTER) ===');
+
+  var config = Config.load();
+  var sampleBase64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP////////////////////////////////////////////////////////////////──────────────────────WG1hZGg=';
+
+  // 1. Tes Gemini Vision API
+  var geminiModel = 'gemini-1.5-flash-latest';
+  var urlGemini = 'https://generativelanguage.googleapis.com/v1beta/models/' + geminiModel + ':generateContent?key=' + config.geminiApiKey;
+  
+  var payloadGemini = {
+    contents: [{
+      parts: [
+        { text: 'Deskripsikan gambar ini' },
+        { inlineData: { mimeType: 'image/jpeg', data: sampleBase64 } }
+      ]
+    }]
+  };
+
+  try {
+    var resG = UrlFetchApp.fetch(urlGemini, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payloadGemini),
+      muteHttpExceptions: true
+    });
+    Logger.log('Gemini Vision HTTP Status: ' + resG.getResponseCode());
+    Logger.log('Gemini Vision Response: ' + resG.getContentText().substring(0, 300));
+  } catch (eG) {
+    Logger.log('Gemini Error: ' + eG.message);
+  }
+
+  // 2. Tes OpenRouter Vision API (Fallback)
+  if (config.openrouterApiKey) {
+    var urlOR = 'https://openrouter.ai/api/v1/chat/completions';
+    var payloadOR = {
+      model: 'google/gemini-2.0-flash-exp:free',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Deskripsikan gambar ini' },
+          { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + sampleBase64 } }
+        ]
+      }]
+    };
+
+    try {
+      var resOR = UrlFetchApp.fetch(urlOR, {
+        method: 'post',
+        headers: { 'Authorization': 'Bearer ' + config.openrouterApiKey },
+        contentType: 'application/json',
+        payload: JSON.stringify(payloadOR),
+        muteHttpExceptions: true
+      });
+      Logger.log('\nOpenRouter Vision HTTP Status: ' + resOR.getResponseCode());
+      Logger.log('OpenRouter Vision Response: ' + resOR.getContentText().substring(0, 300));
+    } catch (eOR) {
+      Logger.log('OpenRouter Vision Error: ' + eOR.message);
+    }
+  }
+}
