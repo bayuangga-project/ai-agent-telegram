@@ -2,19 +2,18 @@
  * ===================================================================
  * SERVICE: GITHUB BACKUP (WITH AUTO-DELETE SYNC & SAFETY GUARD)
  * Tanggung jawab: Backup otomatis source code & docs dari GAS ke GitHub.
- * Otomatis menghapus file di GitHub yang sudah dihapus di GAS Editor.
+ * Otomatis menghapus file .gs dan file .md di GitHub yang sudah dihapus di GAS/Sheet.
  * ===================================================================
  */
 const GitHubBackupService = {
   APPS_SCRIPT_API_BASE: 'https://script.googleapis.com/v1/projects/',
   GITHUB_API_BASE: 'https://api.github.com/repos/',
-  MIN_LOCAL_FILES_SAFETY_THRESHOLD: 30, // Guard 1: Batas minimal file lokal agar delete sync diizinkan
+  MIN_LOCAL_FILES_SAFETY_THRESHOLD: 30,
 
   backupAllFiles() {
     const config = this._loadGitHubConfig();
     const files = this._fetchOwnSourceFiles();
     
-    // SAFETY GUARD: Jika file lokal < 30, batalkan untuk mencegah kecelakaan terhapusnya repo
     if (!files || files.length < this.MIN_LOCAL_FILES_SAFETY_THRESHOLD) {
       AppLogger.error('GITHUB_BACKUP_ABORT', 'Safety Guard Triggered: File lokal terlalu sedikit (' + (files ? files.length : 0) + ' < ' + this.MIN_LOCAL_FILES_SAFETY_THRESHOLD + ')');
       return [{ path: 'ALL', status: 'ABORTED_SAFETY_GUARD' }];
@@ -23,7 +22,6 @@ const GitHubBackupService = {
     const results = [];
     const localPaths = [];
 
-    // 1. Push / Update file lokal ke GitHub
     files.forEach(file => {
       const path = this._resolveFilePath(file);
       localPaths.push(path);
@@ -38,7 +36,6 @@ const GitHubBackupService = {
       Utilities.sleep(200);
     });
 
-    // 2. Deteksi & Hapus file Yatim di GitHub (File yang sudah dihapus di GAS)
     this._syncDeletedFilesToGitHub(config, localPaths, results);
 
     return results;
@@ -66,6 +63,9 @@ const GitHubBackupService = {
       Utilities.sleep(200);
     });
 
+    // Auto-Delete Sync untuk file .md yatim di root GitHub
+    this._syncDeletedDocsToGitHub(config, docs, results);
+
     return results;
   },
 
@@ -77,8 +77,6 @@ const GitHubBackupService = {
       githubSrcFiles.forEach(ghFile => {
         if (ghFile.type === 'file') {
           const ghPath = ghFile.path;
-          
-          // Jika file di GitHub TIDAK ADA di daftar file lokal GAS -> Hapus dari GitHub!
           if (localPaths.indexOf(ghPath) === -1) {
             var deletedOk = this._deleteFileFromGitHub(config, ghPath, ghFile.sha);
             if (deletedOk) {
@@ -90,6 +88,31 @@ const GitHubBackupService = {
       });
     } catch (e) {
       AppLogger.warning('GITHUB_BACKUP_DELETE_SYNC_WARN', e.message);
+    }
+  },
+
+  _syncDeletedDocsToGitHub(config, docsInSheet, results) {
+    try {
+      var localDocNames = docsInSheet.map(function(d) { return d.fileName; });
+      var githubRootFiles = GitHubOpsService.listDirectory('');
+      if (!githubRootFiles || !Array.isArray(githubRootFiles)) return;
+
+      var canonicalTargets = ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOVER.md', 'ai_knowledge.md'];
+
+      githubRootFiles.forEach(function(ghFile) {
+        if (ghFile.type === 'file' && ghFile.name.indexOf('.md') === ghFile.name.length - 3) {
+          var ghName = ghFile.name;
+          if (localDocNames.indexOf(ghName) === -1 && canonicalTargets.indexOf(ghName) === -1) {
+            var deletedOk = GitHubBackupService._deleteFileFromGitHub(config, ghName, ghFile.sha);
+            if (deletedOk) {
+              results.push({ path: ghName, status: 'DELETED_FROM_GITHUB_ROOT' });
+              AppLogger.info('GITHUB_BACKUP_DOC_DELETED', ghName);
+            }
+          }
+        }
+      });
+    } catch (e) {
+      AppLogger.warning('GITHUB_BACKUP_DOC_DELETE_SYNC_WARN', e.message);
     }
   },
 
