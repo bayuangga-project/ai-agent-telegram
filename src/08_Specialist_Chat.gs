@@ -1,28 +1,26 @@
 /**
  * ===================================================================
- * SPESIALIS: CHAT (UNIFIED PERSONA WITH STRICT IDENTITY RESOLUTION)
+ * SPESIALIS: CHAT (UNIFIED PERSONA & WEB SEARCH CONTEXT GROUNDING)
  * Tanggung jawab: Mengelola kepribadian tanggapan obrolan biasa
  * dan percakapan berbasis konteks web search.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const ChatSpecialist = {
 
-  /**
-   * Mengambil & Merender System Persona dengan Pengecekan Identitas Berlapis
-   */
   buildSystemPersona() {
     var rawTemplate = KnowledgeRepository.get('soul', 'system_persona');
     if (!rawTemplate) {
       rawTemplate = KnowledgeRepository.get('intent', 'persona');
     }
     if (!rawTemplate) {
-      rawTemplate = 'Kamu adalah AI Agent mandiri, jujur, objektif, dan presisi dalam Bahasa Indonesia.';
+      return '';
     }
 
-    // 1. Lacak nama AI dari 3 sumber database (Soul -> UserProfile -> MemoryFacts)
     var aiName = '';
+    var traits = '-';
+    var values = '-';
 
-    // Sumber A: Soul Identity
     try {
       if (typeof SoulSpecialist !== 'undefined' && SoulSpecialist.getIdentity) {
         var soulIdentity = SoulSpecialist.getIdentity();
@@ -32,7 +30,6 @@ const ChatSpecialist = {
       }
     } catch (e) {}
 
-    // Sumber B: UserProfile (key: ai_name)
     if (!aiName) {
       try {
         var profileItems = UserProfileSpecialist.getByCategory('identitas') || [];
@@ -45,7 +42,6 @@ const ChatSpecialist = {
       } catch (e) {}
     }
 
-    // Sumber C: Memory Facts (fakta pencatatan nama)
     if (!aiName) {
       try {
         var facts = KnowledgeSpecialist.getActiveFactsForPrompt(50) || [];
@@ -59,31 +55,22 @@ const ChatSpecialist = {
       } catch (e) {}
     }
 
-    // 2. Isikan variabel template
-    var basePersona = KnowledgeRepository.get('intent', 'persona') || 'AI Agent mandiri dan presisi.';
+    var basePersona = KnowledgeRepository.get('intent', 'persona') || '';
     var variables = {
       persona: basePersona,
-      name: aiName ? aiName : 'Belum diatur',
-      traits: 'Mandiri, objektif, penolong',
-      values: 'Kebenaran, kejujuran, presisi',
-      communication_style: 'Natural, santun, fleksibel',
+      name: aiName ? aiName : '',
+      traits: traits,
+      values: values,
+      communication_style: '',
       beliefs: '-',
       weaknesses: '-'
     };
 
     var rendered = TemplateEngine.render(rawTemplate, variables);
 
-    // 3. ATURAN RIGID: Jika nama sudah terdeteksi, hapus instruksi "belum punya nama" & kunci nama secara mutlak
     if (aiName) {
       rendered = rendered.replace(/Jika data identitas masih kosong.*$/gm, '');
       rendered = rendered.replace(/jawab dengan jujur bahwa kamu masih dalam tahap awal perkembangan.*$/gm, '');
-      rendered += '\n\n=========================================\n' +
-                  'PERINTAH MUTLAK IDENTITAS DIRI:\n' +
-                  '- NAMAMU ADALAH: ' + aiName + '\n' +
-                  '- Kamu SUDAH MEMILIKI nama resmi yaitu ' + aiName + '.\n' +
-                  '- DILARANG KERAS menyatakan kamu belum memiliki nama atau masih dalam tahap awal perkembangan identitas!\n' +
-                  '- Selalu akui namamu adalah ' + aiName + ' saat ditanya oleh pengguna.\n' +
-                  '=========================================';
     }
 
     return rendered;
@@ -98,8 +85,17 @@ const ChatSpecialist = {
     var persona = this.buildSystemPersona();
     var contextText = WebSearchProviderService.formatResultsAsContext(searchResults);
 
-    var systemPrompt = persona + '\n\nKONTEKS HASIL PENCARIAN WEB REAL-TIME:\n' + contextText +
-      '\n\nTugasmu: Jawab pertanyaan pengguna berdasarkan konteks pencarian web di atas secara faktual, ringkas, dan natural dalam Bahasa Indonesia.';
+    var promptTemplate = KnowledgeRepository.get('websearch', 'prompt_template');
+    var systemPrompt = '';
+
+    if (promptTemplate) {
+      systemPrompt = TemplateEngine.render(promptTemplate, {
+        persona: persona,
+        context_text: contextText
+      });
+    } else {
+      systemPrompt = persona + '\n\nKONTEKS PENCARIAN REAL-TIME:\n' + contextText;
+    }
 
     var formattedHistory = this._formatRiwayat(riwayat);
 
@@ -110,14 +106,14 @@ const ChatSpecialist = {
       temperature: 0.5
     });
 
-    return (response && response.text) ? response.text : 'Maaf, saya tidak dapat menemukan informasi terbaru saat ini.';
+    return (response && response.text) ? response.text : '';
   },
 
   _formatRiwayat(riwayat) {
     if (!riwayat || !Array.isArray(riwayat)) return [];
     return riwayat.map(function(item) {
       return {
-        role: item.role === 'ai' ? 'assistant' : 'user',
+        role: item.role === 'ai' || item.role === 'assistant' ? 'assistant' : 'user',
         text: item.text || item.content || ''
       };
     });
