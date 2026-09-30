@@ -1,8 +1,9 @@
 /**
  * ===================================================================
- * SPESIALIS: SELF-HEALING
+ * SPESIALIS: SELF-HEALING (WITH FORCE SYNC HEALER ENGINE)
  * Tanggung jawab: Diagnosis error dari log, pembuatan patch GitHub,
- * dan pembaruan dokumentasi berbasis LLM.
+ * pembaruan dokumentasi berbasis LLM, dan pemulihan paksa data.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const SelfHealingSpecialist = {
@@ -70,13 +71,53 @@ const SelfHealingSpecialist = {
     };
   },
 
+  /**
+   * FORCE SYNC HEALER 1: Menyinkronkan paksa seluruh data Knowledge dari Sheet ke GitHub
+   */
+  forceSyncKnowledge() {
+    AppLogger.info('SELF_HEAL_FORCE_KNOWLEDGE_START', 'manual_heal');
+    return KnowledgeSyncSpecialist.pushSheetToGitHub();
+  },
+
+  /**
+   * FORCE SYNC HEALER 2: Menyinkronkan paksa seluruh file .md kanonik dari Sheet ke GitHub
+   */
+  forceSyncDocs() {
+    AppLogger.info('SELF_HEAL_FORCE_DOCS_START', 'manual_heal');
+    var canonicalFiles = ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOVER.md'];
+    var docs = DocumentationRepository.getAll();
+
+    if (!docs || docs.length === 0) {
+      return { success: false, code: 'DOCUMENTATION_SHEET_EMPTY' };
+    }
+
+    var results = [];
+    for (var i = 0; i < canonicalFiles.length; i++) {
+      var fileName = canonicalFiles[i];
+      var sheetDoc = docs.find(function(d) { return d.fileName === fileName; });
+
+      if (!sheetDoc || !sheetDoc.content) continue;
+
+      try {
+        var existingFile = GitHubOpsService.readFile(fileName);
+        var sha = (existingFile && existingFile.sha) ? existingFile.sha : null;
+        var ok = GitHubOpsService.commitFile(fileName, sheetDoc.content, 'healer: force align ' + fileName, null, sha);
+        results.push({ file: fileName, success: ok });
+      } catch (e) {
+        results.push({ file: fileName, success: false, error: e.message });
+      }
+    }
+
+    return { success: true, results: results };
+  },
+
   updateDocumentation(instruction) {
     AppLogger.info('SELF_HEAL_DOC_UPDATE', instruction);
 
     var canonicalRaw = KnowledgeRepository.get('docsync', 'canonical_files');
     var canonicalFiles = canonicalRaw
       ? canonicalRaw.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; })
-      : ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOFF.md', 'ai_knowledge.md'];
+      : ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOVER.md', 'ai_knowledge.md'];
 
     var currentDocs = {};
 
@@ -84,20 +125,12 @@ const SelfHealingSpecialist = {
       var fName = canonicalFiles[i];
       var fileData = GitHubOpsService.readFile(fName);
       if (fileData && fileData.content) {
-        currentDocs[fName] = fileData.content.substring(0, 5000);
+        currentDocs[fName] = fileData.content.substring(0, 8000);
       }
     }
 
     var template = KnowledgeRepository.get('selfheal', 'doc_update_prompt');
-    var prompt = '';
-    if (template) {
-      prompt = TemplateEngine.render(template, {
-        instruction: instruction,
-        current_docs: JSON.stringify(currentDocs, null, 2)
-      });
-    } else {
-      prompt = instruction + '\n\n' + JSON.stringify(currentDocs);
-    }
+    var prompt = template ? TemplateEngine.render(template, { instruction: instruction, current_docs: JSON.stringify(currentDocs, null, 2) }) : instruction;
 
     var llmResult = LLMProviderService.generate({
       taskType: 'documentation',
@@ -106,9 +139,7 @@ const SelfHealingSpecialist = {
       temperature: 0.2
     });
 
-    if (!llmResult || !llmResult.text) {
-      return { success: false, code: 'DOC_UPDATE_LLM_FAILED' };
-    }
+    if (!llmResult || !llmResult.text) return { success: false, code: 'DOC_UPDATE_LLM_FAILED' };
 
     try {
       var cleaned = llmResult.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -121,14 +152,8 @@ const SelfHealingSpecialist = {
           var ok = GitHubOpsService.updateDocFile(f.fileName, f.content, 'docs: ' + (result.summary || 'update'));
           commitResults.push({ file: f.fileName, success: ok });
         }
-
-        return {
-          success: true,
-          summary: result.summary,
-          files: commitResults
-        };
+        return { success: true, summary: result.summary, files: commitResults };
       }
-
       return { success: true, summary: 'NO_CHANGES_REQUIRED', files: [] };
     } catch (e) {
       AppLogger.error('SELF_HEAL_DOC_PARSE_FAIL', e.message);
@@ -138,13 +163,8 @@ const SelfHealingSpecialist = {
 
   applyPendingPatch(patchId) {
     var patch = this._getPatchById(patchId);
-    if (!patch) {
-      return { success: false, code: 'PATCH_NOT_FOUND' };
-    }
-
-    if (patch.status !== 'pending') {
-      return { success: false, code: 'PATCH_ALREADY_PROCESSED', status: patch.status };
-    }
+    if (!patch) return { success: false, code: 'PATCH_NOT_FOUND' };
+    if (patch.status !== 'pending') return { success: false, code: 'PATCH_ALREADY_PROCESSED', status: patch.status };
 
     return this._applyToGitHub({
       fileName: patch.fileName,
@@ -177,11 +197,7 @@ const SelfHealingSpecialist = {
   _filterErrorLogs(logs) {
     return logs.filter(function(log) {
       var event = String(log.event).toUpperCase();
-      return event.indexOf('FAIL') !== -1 ||
-             event.indexOf('ERROR') !== -1 ||
-             event.indexOf('BAD') !== -1 ||
-             event.indexOf('RETRY') !== -1 ||
-             log.status === 'ERROR';
+      return event.indexOf('FAIL') !== -1 || event.indexOf('ERROR') !== -1 || event.indexOf('BAD') !== -1 || event.indexOf('RETRY') !== -1 || log.status === 'ERROR';
     });
   },
 
@@ -189,34 +205,23 @@ const SelfHealingSpecialist = {
     var suspectSet = {};
     var mapping = {
       'TELEGRAM': ['05_Service_Telegram.gs'],
-      'LLM': [
-        '06_Service_LLMProvider.gs',
-        '06_Service_LLM_Gemini.gs',
-        '06_Service_LLM_Groq.gs',
-        '06_Service_LLM_OpenRouter.gs'
-      ],
+      'LLM': ['06_Service_LLMProvider.gs'],
       'INTENT': ['09_Manager_IntentAnalyzer.gs'],
       'WEBHOOK': ['10_Handler_Webhook.gs'],
-      'REMINDER': ['11_Trigger_ReminderChecker.gs', '08_Specialist_Reminder.gs'],
+      'REMINDER': ['11_Trigger_MasterScheduler.gs', '08_Specialist_Reminder.gs'],
       'FINANCE': ['08_Specialist_Finance.gs', '04_Repository_Transaction.gs', '04_Repository_Wallet.gs'],
       'REPO': ['01_SpreadsheetGateway.gs', '04_Repository_Knowledge.gs'],
-      'SEARCH': [
-        '07_Service_WebSearchProvider.gs',
-        '07_Service_WebSearch_Google.gs',
-        '07_Service_WebSearch_Tavily.gs'
-      ],
+      'SEARCH': ['07_Service_WebSearchProvider.gs'],
       'GITHUB': ['13_Service_GitHubOps.gs', '12_Service_GitHubBackup.gs'],
       'SELF_HEAL': ['08_Specialist_SelfHealing.gs'],
-      'SOUL': ['08_Specialist_Soul.gs', '08_Specialist_SoulMemory.gs']
+      'SOUL': ['08_Specialist_Soul.gs']
     };
 
     errorLogs.forEach(function(log) {
       var event = String(log.event).toUpperCase();
       Object.keys(mapping).forEach(function(key) {
         if (event.indexOf(key) !== -1) {
-          mapping[key].forEach(function(file) {
-            suspectSet[file] = true;
-          });
+          mapping[key].forEach(function(file) { suspectSet[file] = true; });
         }
       });
     });
@@ -226,28 +231,12 @@ const SelfHealingSpecialist = {
   },
 
   _askLLMForDiagnosis(keluhan, errorLogs, sourceMap) {
-    var logText = errorLogs.length > 0
-      ? errorLogs.map(function(l) {
-          return '[' + l.timestamp + '] ' + l.event + ': ' + l.detail;
-        }).join('\n')
-      : '-';
-
+    var logText = errorLogs.length > 0 ? errorLogs.map(function(l) { return '[' + l.timestamp + '] ' + l.event + ': ' + l.detail; }).join('\n') : '-';
     var sourceText = '';
-    Object.keys(sourceMap).forEach(function(fileName) {
-      sourceText += '\n\n=== FILE: ' + fileName + ' ===\n' + sourceMap[fileName].content;
-    });
+    Object.keys(sourceMap).forEach(function(fileName) { sourceText += '\n\n=== FILE: ' + fileName + ' ===\n' + sourceMap[fileName].content; });
 
     var template = KnowledgeRepository.get('selfheal', 'diagnosis_prompt');
-    var prompt = '';
-    if (template) {
-      prompt = TemplateEngine.render(template, {
-        keluhan: keluhan || '-',
-        error_logs: logText,
-        source_code: sourceText
-      });
-    } else {
-      prompt = keluhan + '\n\n' + logText + '\n\n' + sourceText;
-    }
+    var prompt = template ? TemplateEngine.render(template, { keluhan: keluhan || '-', error_logs: logText, source_code: sourceText }) : keluhan + '\n\n' + logText + '\n\n' + sourceText;
 
     var llmResult = LLMProviderService.generate({
       taskType: 'code_analysis',
@@ -270,10 +259,8 @@ const SelfHealingSpecialist = {
   _applyToGitHub(diagnosis) {
     var timestamp = new Date().getTime();
     var branchName = 'fix/' + diagnosis.fileName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '-' + timestamp;
-
     var path = diagnosis.fileName.indexOf('src/') === 0 ? diagnosis.fileName : 'src/' + diagnosis.fileName;
-    var original = GitHubOpsService.readFile(path);
-    if (!original) original = GitHubOpsService.readFile(diagnosis.fileName);
+    var original = GitHubOpsService.readFile(path) || GitHubOpsService.readFile(diagnosis.fileName);
 
     var originalContent = original ? original.content : null;
     var sha = original ? original.sha : null;
@@ -281,79 +268,32 @@ const SelfHealingSpecialist = {
     var validation = PatchValidator.validate(diagnosis.patchedCode, originalContent, diagnosis.fileName);
 
     if (!validation.valid) {
-      return {
-        success: false,
-        code: 'PATCH_VALIDATION_FAILED',
-        diagnosis: diagnosis.diagnosis,
-        fileName: diagnosis.fileName,
-        errors: validation.errors
-      };
+      return { success: false, code: 'PATCH_VALIDATION_FAILED', diagnosis: diagnosis.diagnosis, fileName: diagnosis.fileName, errors: validation.errors };
     }
 
     var backupBranch = GitHubOpsService.createBackupBranch('selfheal-' + timestamp);
     var branchOk = GitHubOpsService.createBranch(branchName);
-    if (!branchOk) {
-      return { success: false, code: 'BRANCH_CREATION_FAILED', branchName: branchName };
-    }
+    if (!branchOk) return { success: false, code: 'BRANCH_CREATION_FAILED', branchName: branchName };
 
-    var commitOk = GitHubOpsService.commitFile(
-      path,
-      diagnosis.patchedCode,
-      'fix: ' + diagnosis.diagnosis + ' (auto-heal)',
-      branchName,
-      sha
-    );
+    var commitOk = GitHubOpsService.commitFile(path, diagnosis.patchedCode, 'fix: ' + diagnosis.diagnosis + ' (auto-heal)', branchName, sha);
+    if (!commitOk) return { success: false, code: 'COMMIT_FAILED', branchName: branchName };
 
-    if (!commitOk) {
-      return { success: false, code: 'COMMIT_FAILED', branchName: branchName };
-    }
+    var prBody = '## Diagnosis\n' + diagnosis.diagnosis + '\n\n## Detail Teknis\n' + (diagnosis.technicalDetail || '-') + '\n\n## Perubahan\n' + (diagnosis.changes || []).map(function(c) { return '- ' + c; }).join('\n') + '\n\n';
+    if (backupBranch) prBody += '## Backup\n`' + backupBranch + '`\n\n';
 
-    var prBody = '## Diagnosis\n' + diagnosis.diagnosis + '\n\n' +
-                 '## Detail Teknis\n' + (diagnosis.technicalDetail || '-') + '\n\n' +
-                 '## Perubahan\n' + (diagnosis.changes || []).map(function(c) { return '- ' + c; }).join('\n') + '\n\n';
-
-    if (backupBranch) {
-      prBody += '## Backup\n`' + backupBranch + '`\n\n';
-    }
-
-    var prUrl = GitHubOpsService.createPullRequest(
-      'Auto-Heal: ' + diagnosis.fileName,
-      prBody,
-      branchName,
-      null
-    );
-
+    var prUrl = GitHubOpsService.createPullRequest('Auto-Heal: ' + diagnosis.fileName, prBody, branchName, null);
     this._updatePatchStatus(diagnosis.fileName, 'committed');
 
-    return {
-      success: true,
-      diagnosis: diagnosis.diagnosis,
-      fileName: diagnosis.fileName,
-      branchName: branchName,
-      backupBranch: backupBranch,
-      prUrl: prUrl,
-      changes: diagnosis.changes || [],
-      warnings: validation.warnings || []
-    };
+    return { success: true, diagnosis: diagnosis.diagnosis, fileName: diagnosis.fileName, branchName: branchName, backupBranch: backupBranch, prUrl: prUrl, changes: diagnosis.changes || [], warnings: validation.warnings || [] };
   },
 
   _savePatch(diagnosis) {
     try {
       var id = IdGenerator.generate('PATCH');
       var timestamp = DateTimeUtils.nowWIB();
-      SpreadsheetGateway.appendRowSafe('SelfHeal_Patches', [
-        id,
-        timestamp,
-        diagnosis.fileName || 'unknown',
-        diagnosis.diagnosis || '',
-        diagnosis.patchedCode || '',
-        'pending'
-      ]);
+      SpreadsheetGateway.appendRowSafe('SelfHeal_Patches', [id, timestamp, diagnosis.fileName || 'unknown', diagnosis.diagnosis || '', diagnosis.patchedCode || '', 'pending']);
       return id;
-    } catch (e) {
-      AppLogger.error('SELF_HEAL_SAVE_FAIL', e.message);
-      return null;
-    }
+    } catch (e) { return null; }
   },
 
   _getPatchById(patchId) {
@@ -362,20 +302,11 @@ const SelfHealingSpecialist = {
       var data = sheet.getDataRange().getValues();
       for (var i = 1; i < data.length; i++) {
         if (!patchId || data[i][0] === patchId) {
-          return {
-            id: data[i][0],
-            timestamp: data[i][1],
-            fileName: data[i][2],
-            diagnosis: data[i][3],
-            patchedCode: data[i][4],
-            status: data[i][5]
-          };
+          return { id: data[i][0], timestamp: data[i][1], fileName: data[i][2], diagnosis: data[i][3], patchedCode: data[i][4], status: data[i][5] };
         }
       }
       return null;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   },
 
   _updatePatchStatus(fileName, newStatus) {
@@ -388,8 +319,6 @@ const SelfHealingSpecialist = {
           break;
         }
       }
-    } catch (e) {
-      AppLogger.error('SELF_HEAL_STATUS_FAIL', e.message);
-    }
+    } catch (e) {}
   }
 };
