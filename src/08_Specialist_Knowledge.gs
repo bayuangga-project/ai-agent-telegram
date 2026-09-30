@@ -1,7 +1,8 @@
 /**
  * ===================================================================
- * SPESIALIS: KNOWLEDGE (USER FACTS MANAGEMENT)
- * Tanggung jawab: simpan & ambil fakta tentang user.
+ * SPESIALIS: KNOWLEDGE (USER FACTS & SEMANTIC RAG INTEGRATED)
+ * Tanggung jawab: simpan & ambil fakta tentang user dengan dukungan
+ * Vector Cosine Similarity RAG.
  * ===================================================================
  */
 const KnowledgeSpecialist = {
@@ -28,12 +29,10 @@ const KnowledgeSpecialist = {
   },
 
   getActiveFactsForPrompt(limit) {
-    return FactsRepository.getActive(limit || 50);
+    return FactsRepository.getActive(limit || 15);
   },
 
   findRelevantToKeyword(keyword, limit) {
-    const facts = this.getActiveFactsForPrompt(limit || 50);
-    const lowerKeyword = keyword.toLowerCase();
-    return facts.filter(f => f.toLowerCase().indexOf(lowerKeyword) !== -1);
+    return FactsRepository.getSemanticFacts(keyword, limit || 15);
   }
 };
