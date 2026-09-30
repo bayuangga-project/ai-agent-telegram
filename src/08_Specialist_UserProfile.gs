@@ -1,14 +1,10 @@
 /**
- * SPECIALIST: USER PROFILE
+ * SPECIALIST: USER PROFILE (TEXTFINDER FAST UPSERT)
  * Tanggung jawab: menyimpan dan mengelola profil user secara otomatis.
  * Data diekstrak oleh LLM dari percakapan sehari-hari.
  */
 var UserProfileSpecialist = {
 
-  /**
-   * Simpan atau update profile entries dari LLM.
-   * @param {array} updates - Array of { key, value, category }
-   */
   saveUpdates: function(updates) {
     if (!updates || !Array.isArray(updates) || updates.length === 0) return;
 
@@ -23,11 +19,6 @@ var UserProfileSpecialist = {
     });
   },
 
-  /**
-   * Ambil semua profil aktif untuk dimasukkan ke prompt LLM.
-   * @param {number} maxItems - jumlah maksimal
-   * @returns {array} Array of string
-   */
   getProfileForPrompt: function(maxItems) {
     try {
       var sheet = SpreadsheetGateway.getSheet('User_Profile');
@@ -44,7 +35,6 @@ var UserProfileSpecialist = {
         }
       }
 
-      // Ambil yang paling baru (baris terakhir)
       if (profiles.length > maxItems) {
         profiles = profiles.slice(profiles.length - maxItems);
       }
@@ -56,14 +46,19 @@ var UserProfileSpecialist = {
     }
   },
 
-  /**
-   * Ambil profil berdasarkan kategori.
-   * @param {string} category - misal 'goal', 'preference', 'schedule'
-   * @returns {array}
-   */
   getByCategory: function(category) {
     try {
       var sheet = SpreadsheetGateway.getSheet('User_Profile');
+      if (sheet.getLastRow() < 2) return [];
+
+      var cell = sheet.getRange('C:C')
+        .createTextFinder(String(category).trim())
+        .matchEntireCell(true)
+        .matchCase(false)
+        .findNext();
+
+      if (!cell) return [];
+
       var data = sheet.getDataRange().getValues();
       var results = [];
 
@@ -85,36 +80,46 @@ var UserProfileSpecialist = {
   },
 
   /**
-   * Internal: Insert atau update satu profile entry.
-   * Jika key sudah ada, update value-nya. Jika belum, insert baru.
+   * Fast Upsert Profile menggunakan TextFinder di Kolom A (0ms latency)
+   * Dilengkapi LockService untuk write safety.
    */
   _upsertProfile: function(key, value, category) {
+    var lock = LockService.getScriptLock();
+    lock.waitLock(10000);
     try {
       var sheet = SpreadsheetGateway.getSheet('User_Profile');
-      var data = sheet.getDataRange().getValues();
       var timestamp = DateTimeUtils.nowWIB();
+      var cleanKey = String(key).trim();
 
-      // Cek apakah key sudah ada
-      for (var i = 1; i < data.length; i++) {
-        if (data[i][0] === key) {
-          // Update existing
-          sheet.getRange(i + 1, 2).setValue(value);
-          sheet.getRange(i + 1, 3).setValue(category);
-          sheet.getRange(i + 1, 4).setValue(0.8);
-          sheet.getRange(i + 1, 5).setValue(timestamp);
-          AppLogger.info('USER_PROFILE_UPDATE', key + ' = ' + value);
-          return;
+      if (sheet.getLastRow() >= 2) {
+        var cell = sheet.getRange('A:A')
+          .createTextFinder(cleanKey)
+          .matchEntireCell(true)
+          .matchCase(true)
+          .findNext();
+
+        if (cell) {
+          var rowIndex = cell.getRow();
+          if (rowIndex >= 2) {
+            sheet.getRange(rowIndex, 2).setValue(value);
+            sheet.getRange(rowIndex, 3).setValue(category);
+            sheet.getRange(rowIndex, 4).setValue(0.8);
+            sheet.getRange(rowIndex, 5).setValue(timestamp);
+            AppLogger.info('USER_PROFILE_UPDATE', cleanKey + ' = ' + value);
+            return;
+          }
         }
       }
 
-      // Insert baru
       SpreadsheetGateway.appendRowSafe('User_Profile', [
-        key, value, category, 0.8, timestamp
+        cleanKey, value, category, 0.8, timestamp
       ]);
-      AppLogger.info('USER_PROFILE_INSERT', key + ' = ' + value);
+      AppLogger.info('USER_PROFILE_INSERT', cleanKey + ' = ' + value);
 
     } catch (e) {
       AppLogger.error('USER_PROFILE_SAVE_FAIL', e.message);
+    } finally {
+      lock.releaseLock();
     }
   }
 };
