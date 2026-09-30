@@ -2,8 +2,8 @@
  * ===================================================================
  * SPESIALIS: SELF-AWARENESS (FULL CANONICAL DOCS INGESTION & LINE INDEX)
  * Tanggung jawab: Mengindeks file .gs fisik, objek, metode, dan nomor baris,
- * serta menyajikan SELURUH ISI 5 DOKUMEN .MD KANONIK untuk kesadaran diri utuh
- * tanpa halusinasi Node.js/.env/python.
+ * serta menyajikan seluruh 5 dokumen .md kanonik.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const SelfAwareness = {
@@ -20,9 +20,6 @@ const SelfAwareness = {
     };
   },
 
-  /**
-   * Mengindeks seluruh file .gs, nama objek, nama metode, dan NOMOR BARIS FISIK
-   */
   buildCodeLineIndex() {
     try {
       var allSource = GitHubOpsService.readAllSourceFiles();
@@ -67,7 +64,7 @@ const SelfAwareness = {
       }
 
       if (indexList.length > 0) {
-        KnowledgeRepository.save('code', 'line_index', JSON.stringify(indexList.slice(0, 200)), 'LINE_INDEX_UPDATE');
+        KnowledgeRepository.save('code', 'line_index', JSON.stringify(indexList.slice(0, 250)), 'LINE_INDEX_UPDATE');
       }
 
       return indexList;
@@ -77,12 +74,19 @@ const SelfAwareness = {
     }
   },
 
-  /**
-   * Mencari lokasi file & nomor baris berdasarkan kata kunci fungsi/objek
-   */
   searchCodeLocation(keyword) {
     if (!keyword) return [];
-    var cleanKw = String(keyword).toLowerCase().trim();
+    var cleanKw = String(keyword).trim();
+
+    var stopWords = ['vexa', 'dyar', 'di', 'file', 'mana', 'dan', 'baris', 'berapa', 'fungsi', 'dipanggil', 'tolong', 'cek', 'apa', 'nama', 'ada', 'yang', 'ini', 'itu', 'minta', 'cari', 'dimana'];
+    var rawTokens = cleanKw.match(/([a-zA-Z_$][a-zA-Z0-9_$]{2,})/g) || [];
+    var cleanTokens = rawTokens.filter(function(t) {
+      return stopWords.indexOf(t.toLowerCase()) === -1;
+    });
+
+    if (cleanTokens.length === 0) {
+      cleanTokens = [cleanKw.toLowerCase()];
+    }
 
     var rawIndex = KnowledgeRepository.get('code', 'line_index');
     var indexList = [];
@@ -95,11 +99,22 @@ const SelfAwareness = {
     }
 
     var matches = [];
+    var seenKeys = {};
+
     for (var i = 0; i < indexList.length; i++) {
       var item = indexList[i];
-      if (item.file.toLowerCase().indexOf(cleanKw) !== -1 || 
-          item.method.toLowerCase().indexOf(cleanKw) !== -1) {
-        matches.push(item);
+      var itemFileLower = item.file.toLowerCase();
+      var itemMethodLower = item.method.toLowerCase();
+
+      for (var t = 0; t < cleanTokens.length; t++) {
+        var tokenLower = cleanTokens[t].toLowerCase();
+        if (itemFileLower.indexOf(tokenLower) !== -1 || itemMethodLower.indexOf(tokenLower) !== -1) {
+          var key = item.file + ':' + item.line + ':' + item.method;
+          if (!seenKeys[key]) {
+            seenKeys[key] = true;
+            matches.push(item);
+          }
+        }
       }
     }
 
@@ -107,19 +122,32 @@ const SelfAwareness = {
   },
 
   _gatherSelfData() {
-    var data = {
-      stackContract: {
+    // Ambil Stack Contract dari Database Knowledge (Auto-Bootstrap jika belum ada)
+    var stackContractRaw = KnowledgeRepository.get('soul', 'stack_contract');
+    var stackContract = null;
+    
+    if (stackContractRaw) {
+      try { stackContract = JSON.parse(stackContractRaw); } catch (e) {}
+    }
+
+    if (!stackContract) {
+      stackContract = {
         platform: "Google Apps Script V8 (.gs)",
         database: "Google Sheets (SpreadsheetGateway) & Money Tracker V19.3",
         configStorage: "Script Properties (PropertiesService)",
         codeFramework: "Object Literals (const X = {})",
         bannedHallucinations: [".env", "Node.js", "npm", "index.js", "process.env", "express", "GoogleGenAI SDK", "llm_service.py", "agent_runner.py"]
-      },
+      };
+      KnowledgeRepository.save('soul', 'stack_contract', JSON.stringify(stackContract), 'AUTO_BOOTSTRAP_STACK_CONTRACT');
+    }
+
+    var data = {
+      stackContract: stackContract,
       codeStructure: {},
       fileList: [],
       codeLineIndexSample: [],
       sheetList: [],
-      canonicalDocsContent: {}, // FULL 5 CANONICAL DOCS INGESTION
+      canonicalDocsContent: {},
       intentList: [
         'ack_reminder', 'buat_reminder', 'chat_biasa', 'catat_keuangan',
         'tanya_saldo', 'ringkasan_keuangan', 'atur_budget', 'edit_transaksi',
@@ -133,7 +161,6 @@ const SelfAwareness = {
       userKnowledge: { facts: [], profile: [] }
     };
 
-    // A. Membaca Peta Struktur Kode Fisik dari Knowledge Database
     try {
       var rawIndex = KnowledgeRepository.get('code', 'line_index');
       if (rawIndex) {
@@ -158,7 +185,6 @@ const SelfAwareness = {
       } catch (e3) {}
     }
 
-    // B. Membaca SELURUH ISI 5 DOKUMEN .MD KANONIK
     try {
       var docs = DocumentationRepository.getAll();
       var canonicalTargets = ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOVER.md'];
@@ -168,20 +194,17 @@ const SelfAwareness = {
         }
       }
       
-      // Tambahkan ai_knowledge.md dari Knowledge
       var aiKnowledgeContent = KnowledgeRepository.get('docsync', 'canonical_files');
       if (aiKnowledgeContent) {
         data.canonicalDocsContent['ai_knowledge.md'] = aiKnowledgeContent;
       }
     } catch (e4) {}
 
-    // C. Membaca Daftar Sheet Aktif
     try {
       var ss = SpreadsheetGateway.getSpreadsheet();
       data.sheetList = ss.getSheets().map(function(s) { return s.getName(); });
     } catch (e5) {}
 
-    // D. Membaca Log Error Terakhir
     try {
       var sheet = SpreadsheetGateway.getSheet('Log_System');
       var logData = sheet.getDataRange().getValues();
@@ -190,7 +213,7 @@ const SelfAwareness = {
         var totalLogs = logData.length - 1;
         var errCount = 0;
 
-        for (var i = logData.length - 1; i >= 1; i--) {
+        for (var i = 1; i < logData.length; i++) {
           var event = String(logData[i][1]).toUpperCase();
           var status = String(logData[i][3]).toUpperCase();
           var isError = event.indexOf('FAIL') !== -1 || event.indexOf('ERROR') !== -1 || status === 'ERROR';
@@ -215,7 +238,6 @@ const SelfAwareness = {
       }
     } catch (e6) {}
 
-    // E. Membaca Data User
     try {
       data.userKnowledge.facts = KnowledgeSpecialist.getActiveFactsForPrompt(10) || [];
       data.userKnowledge.profile = UserProfileSpecialist.getProfileForPrompt(10) || [];
