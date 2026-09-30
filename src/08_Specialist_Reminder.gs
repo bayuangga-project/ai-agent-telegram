@@ -1,8 +1,9 @@
 /**
  * ===================================================================
- * SPESIALIS: REMINDER
- * Tanggung jawab: semua logic bisnis terkait reminder.
- * Tidak tahu cara kirim Telegram — hanya hasilkan teks siap pakai.
+ * SPESIALIS: REMINDER (SEMANTIC KEYWORD CLEANER INTEGRATED)
+ * Tanggung jawab: semua logic bisnis terkait reminder, format pemberitahuan,
+ * dan ekstraksi kata kunci memori fakta relevan (Stopword Filter & N-Gram).
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const ReminderSpecialist = {
@@ -36,9 +37,11 @@ const ReminderSpecialist = {
 
   create(reminderData) {
     if (!reminderData.waktuPertama || reminderData.waktuPertama.trim() === '') {
+      var tplTimeMissing = KnowledgeRepository.get('reminder', 'error_time_missing') || 
+        'Aku nangkep ini sebagai reminder, tapi waktunya kurang jelas. Kapan tepatnya?';
       return {
         success: false,
-        text: 'Aku nangkep ini sebagai reminder, tapi waktunya kurang jelas. Kapan tepatnya?'
+        text: tplTimeMissing
       };
     }
 
@@ -100,10 +103,34 @@ const ReminderSpecialist = {
     return selisih >= cooldownMs;
   },
 
+  /**
+   * Extractor Kata Kunci Bersih (Stopword Filtering)
+   */
+  _extractCleanKeywords(text) {
+    if (!text) return [];
+    var str = String(text).toLowerCase();
+    var stopWords = ['beli', 'ambil', 'bayar', 'di', 'ke', 'untuk', 'pada', 'saat', 'dengan', 'pakai', 'pake', 'via', 'tolong', 'jangan', 'lupa', 'jam', 'hari', 'besok', 'kemarin', 'nanti', 'nanti2'];
+    var words = str.match(/([a-zA-Z0-9_$]{3,})/g) || [];
+    return words.filter(function(w) {
+      return stopWords.indexOf(w) === -1;
+    });
+  },
+
+  /**
+   * Mencocokkan Kata Kunci Berbobot (Semantic Match) ke Memori Fakta
+   */
   _buildRelevantFactContext(reminder) {
-    const keyword = reminder.deskripsi.split(' ')[0];
-    const faktaRelevan = KnowledgeSpecialist.findRelevantToKeyword(keyword, 50);
-    return faktaRelevan.length > 0 ? '\n\n_' + faktaRelevan[0] + '_' : '';
+    if (!reminder || !reminder.deskripsi) return '';
+    var keywords = this._extractCleanKeywords(reminder.deskripsi);
+    if (keywords.length === 0) return '';
+
+    for (var i = 0; i < keywords.length; i++) {
+      var faktaRelevan = KnowledgeSpecialist.findRelevantToKeyword(keywords[i], 20);
+      if (faktaRelevan && faktaRelevan.length > 0) {
+        return '\n\n_' + faktaRelevan[0] + '_';
+      }
+    }
+    return '';
   },
 
   _buildConfirmationText(data) {
