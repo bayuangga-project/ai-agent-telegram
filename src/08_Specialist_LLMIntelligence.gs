@@ -1,9 +1,6 @@
 /**
  * ===================================================================
- * SPESIALIS: LLM INTELLIGENCE (100% PURE DYNAMIC API DISCOVERY)
- * Tanggung jawab: Menarik model live gratisan secara real-time dari API resmi
- * OpenRouter, Google Gemini, dan Groq (0% hardcode model ID di code),
- * melakukan autonomous benchmarking, dynamic task ranking, dan auto-cooling.
+ * SPESIALIS: LLM INTELLIGENCE (LLM_MODELS SHEET REGISTRY ENGINE)
  * ===================================================================
  */
 const LLMIntelligence = {
@@ -15,10 +12,6 @@ const LLMIntelligence = {
     return SpreadsheetGateway.ensureSheet(this.SHEET_NAME, this.HEADERS);
   },
 
-  /**
-   * TAHAP 1: 100% PURE DYNAMIC DISCOVERY DARI 3 ENDPOINT API RESMI
-   * (Zero String Model ID Hardcode di File .gs)
-   */
   discoverModels() {
     this._ensureSheet();
     AppLogger.info('LLM_DISCOVERY_START', 'fetching_live_api_pure_dynamic');
@@ -32,7 +25,6 @@ const LLMIntelligence = {
 
     var config = Config.load();
 
-    // 1. DYNAMIC DISCOVERY: OpenRouter API (/v1/models)
     if (config.openrouterApiKey) {
       try {
         var urlOR = 'https://openrouter.ai/api/v1/models';
@@ -47,7 +39,6 @@ const LLMIntelligence = {
               return isFreePricing || isFreeTag;
             });
 
-            // Urutkan berdasarkan context_length terbesar
             freeModels.sort(function(a, b) { return (b.context_length || 0) - (a.context_length || 0); });
 
             for (var f = 0; f < freeModels.length; f++) {
@@ -75,7 +66,6 @@ const LLMIntelligence = {
       }
     }
 
-    // 2. DYNAMIC DISCOVERY: Google Gemini API (/v1beta/models)
     if (config.geminiApiKey) {
       try {
         var urlGemini = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + config.geminiApiKey;
@@ -96,8 +86,8 @@ const LLMIntelligence = {
                   display_name: gm.displayName || gId,
                   is_free: true,
                   context_length: gm.inputTokenLimit || 32768,
-                  quality_score: 75,
-                  avg_latency_ms: 1500,
+                  quality_score: 85,
+                  avg_latency_ms: 1200,
                   status: 'ACTIVE',
                   cooldown_until: '',
                   last_tested_at: ''
@@ -112,7 +102,6 @@ const LLMIntelligence = {
       }
     }
 
-    // 3. DYNAMIC DISCOVERY: Groq API (/v1/models)
     if (config.groqApiKey) {
       try {
         var urlGroq = 'https://api.groq.com/openai/v1/models';
@@ -136,8 +125,8 @@ const LLMIntelligence = {
                   display_name: qm.id,
                   is_free: true,
                   context_length: qm.context_window || 8192,
-                  quality_score: 75,
-                  avg_latency_ms: 1500,
+                  quality_score: 80,
+                  avg_latency_ms: 1000,
                   status: 'ACTIVE',
                   cooldown_until: '',
                   last_tested_at: ''
@@ -156,9 +145,6 @@ const LLMIntelligence = {
     return { status: 'success', new_discovered: newDiscovered };
   },
 
-  /**
-   * TAHAP 2: AUTONOMOUS BENCHMARKING (Ujian Logika & Kecepatan Batch Max 3 Model)
-   */
   benchmarkBatch() {
     this._ensureSheet();
     var startTime = new Date().getTime();
@@ -201,9 +187,6 @@ const LLMIntelligence = {
     return { status: 'success', tested_count: testedCount };
   },
 
-  /**
-   * TAHAP 3: DYNAMIC TASK RANKING (Pemetaan Model Terbaik ke Knowledge Routing)
-   */
   rankModels() {
     var models = this._getAllModelRows();
     var now = new Date().getTime();
@@ -230,30 +213,32 @@ const LLMIntelligence = {
       return a.avg_latency_ms - b.avg_latency_ms;
     });
 
-    var rankedIds = activeModels.map(function(item) { return item.model_id; });
+    var rankedObjects = activeModels.map(function(item) {
+      return { model_id: item.model_id, provider: item.provider };
+    });
 
-    if (rankedIds.length === 0) {
-      rankedIds = ['gemini-1.5-flash', 'llama_groq'];
+    if (rankedObjects.length === 0) {
+      rankedObjects = [
+        { model_id: 'gemini-1.5-flash', provider: 'gemini' },
+        { model_id: 'llama_groq', provider: 'groq' }
+      ];
     }
 
     var matrix = {
-      chat_light: rankedIds,
-      chat_heavy: rankedIds,
-      intent_analysis: rankedIds,
-      code_analysis: rankedIds,
-      code_generation: rankedIds,
-      documentation: rankedIds,
-      web_grounded: rankedIds
+      chat_light: rankedObjects,
+      chat_heavy: rankedObjects,
+      intent_analysis: rankedObjects,
+      code_analysis: rankedObjects,
+      code_generation: rankedObjects,
+      documentation: rankedObjects,
+      web_grounded: rankedObjects
     };
 
     KnowledgeRepository.save('llm_routing', 'matrix', JSON.stringify(matrix), 'DYNAMIC_RANKING');
-    AppLogger.info('LLM_RANKING_UPDATED', 'active_ranked_count:' + rankedIds.length);
-    return { status: 'success', ranked_count: rankedIds.length, top_3: rankedIds.slice(0, 3) };
+    AppLogger.info('LLM_RANKING_UPDATED', 'active_ranked_count:' + rankedObjects.length);
+    return { status: 'success', ranked_count: rankedObjects.length, top_3: rankedObjects.slice(0, 3) };
   },
 
-  /**
-   * TAHAP 4: AUTO-COOLING & DEPRECATION MANAGEMENT
-   */
   setCooldown(modelId, durationSeconds, reason) {
     var until = new Date(new Date().getTime() + ((durationSeconds || 1800) * 1000));
     var untilStr = DateTimeUtils.formatUntukPrompt(until);
@@ -266,7 +251,10 @@ const LLMIntelligence = {
     AppLogger.error('LLM_MODEL_DEPRECATED', modelId + '|reason:' + (reason || '-'));
   },
 
-  getRankedModelsForTask(taskType) {
+  /**
+   * Mengembalikan daftar Objek { model_id, provider } yang sudah ter-ranking
+   */
+  getRankedModelObjectsForTask(taskType) {
     var matrixRaw = KnowledgeRepository.get('llm_routing', 'matrix');
     if (!matrixRaw) {
       this.rankModels();
@@ -275,10 +263,26 @@ const LLMIntelligence = {
     try {
       var matrix = JSON.parse(matrixRaw);
       var list = matrix[taskType] || matrix['chat_light'] || [];
-      return Array.isArray(list) ? list : [];
+      if (!Array.isArray(list)) return [];
+
+      // Backward compatibility jika berisi string ID
+      return list.map(function(item) {
+        if (typeof item === 'string') {
+          var prov = 'openrouter';
+          if (item.indexOf('gemini') !== -1) prov = 'gemini';
+          if (item.indexOf('groq') !== -1 || item.indexOf('llama_groq') !== -1) prov = 'groq';
+          return { model_id: item, provider: prov };
+        }
+        return item;
+      });
     } catch (e) {
       return [];
     }
+  },
+
+  getRankedModelsForTask(taskType) {
+    var objs = this.getRankedModelObjectsForTask(taskType);
+    return objs.map(function(o) { return o.model_id; });
   },
 
   runFullPipeline() {
@@ -358,9 +362,6 @@ const LLMIntelligence = {
     return text;
   },
 
-  // -------------------------------------------------------------------
-  // HELPER METODE PERSISTENSI SHEET LLM_Models
-  // -------------------------------------------------------------------
   _getAllModelRows() {
     try {
       var sheet = this._ensureSheet();
