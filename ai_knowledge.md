@@ -326,7 +326,9 @@ Berikut daftar perintah yang bisa lo pakai secara langsung:
 🔹 `/llm discover` - Auto-discovery model gratisan terbaru dari internet.
 🔹 `/llm bench` - Uji tingkat kecerdasan model secara otomatis.
 
-🔧 *Sistem & Dokumentasi*
+🔧 *Sistem, Pemulihan, & Audit*
+🔹 `/audit` - Jalankan audit sistem 32 indikator lengkap.
+🔹 `/heal` - Force sync pemulihan knowledge & dokumen ke GitHub.
 🔹 `/export_ns` - Atur namespace apa saja yang di-export ke GitHub.
 🔹 `/diagnose` - Cek dan perbaiki error log terbaru.
 🔹 `/logs` - Lihat 10 log aktivitas terakhir sistem.
