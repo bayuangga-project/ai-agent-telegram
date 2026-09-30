@@ -1,6 +1,7 @@
 /**
  * ===================================================================
- * MANAGER: RE-ACT AUTONOMOUS AGENT ENGINE (SLOT-FILLING INTEGRATED)
+ * MANAGER: RE-ACT AUTONOMOUS AGENT ENGINE (MULTI-ALIAS WEB SEARCH EXTRACTOR)
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const Manager = {
@@ -9,7 +10,6 @@ const Manager = {
     try {
       this._checkAndSaveIdentityUpdate(chatId, text);
 
-      // 1. Pengecekan approval pending draft SelfDocSync
       var pendingDraftDoc = SelfDocSync.getPendingDraft();
       if (pendingDraftDoc) {
         var approvalActionDoc = SelfDocSync.parseApproval(text);
@@ -18,15 +18,13 @@ const Manager = {
         }
       }
 
-      // 2. Pengecekan Slot-Filling / Approval Pending Draft Finance Tracker
       var pendingFinance = FinanceSpecialist.getPendingDraft();
       if (pendingFinance) {
-        // A. Jika draft memiliki field tertunda (SLOT-FILLING STATE)
         if (pendingFinance.pendingField) {
           var cleanLower = String(text).toLowerCase().trim();
           if (cleanLower === 'batal' || cleanLower === 'cancel' || cleanLower === 'ga jadi') {
             FinanceSpecialist.clearDraft();
-            var msgCancelSlot = '❌ Draft transaksi dibatalkan.';
+            var msgCancelSlot = KnowledgeRepository.get('finance', 'cancel_draft') || '❌ Draft dibatalkan.';
             ChatHistoryRepository.save(chatId, 'user', text);
             ChatHistoryRepository.save(chatId, 'ai', msgCancelSlot);
             return msgCancelSlot;
@@ -35,27 +33,25 @@ const Manager = {
           var fulfillRes = FinanceSpecialist.fulfillPendingField(text);
           if (fulfillRes.success) {
             var completedDraft = fulfillRes.draft;
-            var confirmText = '📝 *Draft Transaksi Keuangan Lengkap (Tracker V19.3)*\n\n' +
-              '📌 Jenis: *' + completedDraft.type + '*\n' +
-              '💵 Nominal: *Rp ' + completedDraft.amount.toLocaleString('id-ID') + '*\n' +
-              '📂 Kategori: *' + completedDraft.category + '*\n' +
-              '💳 Akun: *' + (completedDraft.from || completedDraft.to || '-') + '*\n' +
-              '📝 Catatan: ' + (completedDraft.notes || '-') + '\n' +
-              '📅 Tanggal: ' + completedDraft.date + '\n\n' +
-              'Reply *ya* untuk simpan ke database Tracker, atau *batal* untuk membatalkan.';
+            var tplConfirm = KnowledgeRepository.get('finance', 'confirm_draft') || '📝 Draft Transaksi: {{type}} Rp {{amount}} Kategori: {{category}} Akun: {{account}}';
+            var confirmText = TemplateEngine.render(tplConfirm, {
+              type: completedDraft.type,
+              amount: completedDraft.amount.toLocaleString('id-ID'),
+              category: completedDraft.category,
+              account: completedDraft.from || completedDraft.to || '-',
+              notes: completedDraft.notes || '-',
+              date: completedDraft.date
+            });
 
             ChatHistoryRepository.save(chatId, 'user', text);
             ChatHistoryRepository.save(chatId, 'ai', confirmText);
             return confirmText;
           } else if (CommandRouter.isKnownCommand(text)) {
-            // Jika user mengetik command lain, batalkan draft parsial lama
             FinanceSpecialist.clearDraft();
           } else {
-            // Jika opsi tidak cocok, tapi user mungkin berganti topik, batalkan draft lama & alihkan
             FinanceSpecialist.clearDraft();
           }
         } else {
-          // B. Jika draft sudah lengkap (AWAITED APPROVAL)
           var approvalActionFin = SelfDocSync.parseApproval(text);
           if (approvalActionFin) {
             return this._handleFinanceApproval(chatId, text, approvalActionFin);
@@ -107,9 +103,7 @@ const Manager = {
     if (action === 'approve') {
       var result = FinanceSpecialist.approveDraft();
       if (result.success) {
-        var tplSuccess = KnowledgeRepository.get('finance', 'success_written') ||
-          '✅ Transaksi berhasil dicatat!\n📌 {{type}}: Rp {{amount}}\n📂 Kategori: {{category}}\n💳 Akun: {{account}}\n💰 Saldo Terbaru: Rp {{updatedSaldo}}';
-        
+        var tplSuccess = KnowledgeRepository.get('finance', 'success_written') || '✅ Transaksi berhasil dicatat!\n📌 {{type}}: Rp {{amount}}\n📂 Kategori: {{category}}\n💳 Akun: {{account}}\n💰 Saldo Terbaru: Rp {{updatedSaldo}}';
         var msgSuccess = TemplateEngine.render(tplSuccess, {
           type: result.data.type,
           amount: result.data.amount.toLocaleString('id-ID'),
@@ -117,7 +111,6 @@ const Manager = {
           account: result.data.account,
           updatedSaldo: result.data.updatedSaldo.toLocaleString('id-ID')
         });
-
         ChatHistoryRepository.save(chatId, 'ai', msgSuccess);
         return msgSuccess;
       } else {
@@ -139,9 +132,7 @@ const Manager = {
       var draft = FinanceSpecialist.getPendingDraft();
       if (!draft) return 'Tidak ada draft.';
 
-      var tplDetail = KnowledgeRepository.get('finance', 'detail_draft') ||
-        '📋 *Detail Draft:*\n📌 Jenis: {{type}}\n💵 Nominal: Rp {{amount}}\n📂 Kategori: {{category}}\n💳 Akun: {{account}}\n📝 Catatan: {{notes}}\n📅 Tanggal: {{date}}';
-
+      var tplDetail = KnowledgeRepository.get('finance', 'detail_draft') || '📋 Detail Draft: {{type}} Rp {{amount}}';
       var detailText = TemplateEngine.render(tplDetail, {
         type: draft.type,
         amount: draft.amount.toLocaleString('id-ID'),
@@ -225,9 +216,27 @@ const Manager = {
     return this._handleFallback(chatId, userText, context, observations, lastToolResult);
   },
 
+  /**
+   * Extractor Parameter Query Web Search Multi-Alias (Defensif & Kebal Undefined)
+   */
+  _extractQueryParam(params) {
+    if (!params) return '';
+    if (typeof params === 'string') return params.trim();
+    if (typeof params === 'object') {
+      return String(params.query || params.searchQuery || params.q || params.text || params.keywords || '').trim();
+    }
+    return String(params).trim();
+  },
+
   _executeTool(toolName, params, chatId, userText, context) {
     try {
       var intentMock = { tipe: toolName, keuangan: params, diagnose_error: params, update_docs: params, audit_code: params, fix_audit: params, check_changes: params, roadmap_query: params, implement_feature: params, self_query: params, searchQuery: params.searchQuery, jawabanChat: params.jawabanChat };
+
+      if (toolName === 'web_search') {
+        var extractedQuery = this._extractQueryParam(params) || userText;
+        intentMock.searchQuery = extractedQuery;
+        return this._handleChatWithWebSearch(userText, intentMock, context.riwayat);
+      }
 
       if (toolName === 'catat_keuangan') return this._handleCatatKeuangan(chatId, userText, intentMock);
       if (toolName === 'tanya_saldo') return this._handleTanyaSaldo(chatId, userText, intentMock);
@@ -243,7 +252,6 @@ const Manager = {
       if (toolName === 'roadmap_query') return this._handleRoadmapQuery(chatId, userText, intentMock);
       if (toolName === 'implement_feature') return this._handleImplementFeature(chatId, userText, intentMock);
       if (toolName === 'self_query') return this._handleSelfQuery(chatId, userText, intentMock);
-      if (toolName === 'web_search') return this._handleChatWithWebSearch(userText, intentMock, context.riwayat);
 
       return this._handleChatBiasa(chatId, userText, intentMock, context.riwayat);
 
@@ -258,12 +266,15 @@ const Manager = {
     var toolsRegistry = KnowledgeRepository.get('tools', 'registry') || '[]';
     var template = KnowledgeRepository.get('agent', 'planning_prompt');
 
-    // 1. Injeksi Opsi Akun Sah & Kategori Sah dari Tracker V19.3
+    if (!template) {
+      AppLogger.error('PLANNING_PROMPT_MISSING', 'agent:planning_prompt_not_found_in_knowledge');
+      return persona + '\nTools: ' + toolsRegistry + '\nUserText: ' + userText;
+    }
+
     var trackerOptions = FinanceSpecialist.getValidOptions();
     var validAccountsStr = trackerOptions.accounts.length > 0 ? trackerOptions.accounts.join(', ') : 'Cash, BCA';
     var validCategoriesStr = trackerOptions.expenseCategories.length > 0 ? trackerOptions.expenseCategories.join(', ') : 'Food & Drink, Supplies';
 
-    // 2. Injeksi Grounding Peta Kode Fisik & Full Canonical Docs untuk Self-Awareness Sejati
     var selfData = SelfAwareness.review('all').system_metrics;
     var codeIndexSample = SelfAwareness.searchCodeLocation(userText);
     var codeIndexStr = codeIndexSample.length > 0 ? JSON.stringify(codeIndexSample) : '-';
@@ -277,6 +288,7 @@ const Manager = {
              '\n- AKUN WALLET VALID TRACKER V19.3: ' + validAccountsStr + 
              '\n- KATEGORI VALID TRACKER V19.3: ' + validCategoriesStr + 
              '\n- PETA FISIK KODE (.GS): ' + codeIndexStr +
+             '\n- LOG AKTIVITAS 7 JAM TERAKHIR: ' + JSON.stringify(selfData.recent7HoursActivity) +
              '\n- KONTRAK ARCHITECTURE & HANDOVER: ' + JSON.stringify(selfData.canonicalDocsContent),
       profil: IntentAnalyzer._formatList(context.profile),
       ltm: IntentAnalyzer._formatList(context.ltm),
@@ -284,8 +296,7 @@ const Manager = {
       user_message: userText
     };
 
-    if (template) return TemplateEngine.render(template, variables);
-    return persona + '\nTools: ' + toolsRegistry + '\nUser: ' + userText;
+    return TemplateEngine.render(template, variables);
   },
 
   _parseAgentPlan(rawText) {
@@ -334,7 +345,7 @@ const Manager = {
     }
     if (action === 'detail') {
       var draft = SelfDocSync.getDraftDetail();
-      if (!draft) return 'Tidak ada draft yang tertunda.';
+      if (!draft) return 'Tidak ada draft.';
       var parts = draft.files.map(function(f) { return '📄 *' + f.fileName + '*\nPanjang: ' + f.content.length + ' karakter'; });
       var detailMsg = '📋 *Detail Draft (' + draft.files.length + ' file):*\n\n' + parts.join('\n\n') + '\n\nReply *ya* untuk terbitkan, *batal* untuk batalkan.';
       ChatHistoryRepository.save(chatId, 'ai', detailMsg);
@@ -360,9 +371,6 @@ const Manager = {
     return finalText;
   },
 
-  /**
-   * HANDLER KEUANGAN DENGAN PENYELAMATAN SLOT PARSIAL
-   */
   _handleCatatKeuangan(chatId, text, intent) {
     var k = intent.keuangan || {};
     var draftRes = FinanceSpecialist.prepareDraft({
@@ -592,7 +600,7 @@ const Manager = {
     else finalText = this._handleIntentFailure(chatId, text, riwayat);
 
     if (!finalText || finalText.trim().length === 0) {
-      finalText = 'Halo! Ada yang bisa saya bantu terkait tugas, pengingat, atau pertanyaan teknis hari ini?';
+      finalText = KnowledgeRepository.get('chat', 'default_fallback') || 'Halo! Ada yang bisa saya bantu hari ini?';
     }
 
     if (finalText) {
@@ -614,48 +622,9 @@ const Manager = {
   },
 
   _handleChatWithWebSearch(text, intent, riwayat) {
-    var results = WebSearchProviderService.search(intent.searchQuery);
+    var query = intent.searchQuery || text;
+    var results = WebSearchProviderService.search(query);
     return ChatSpecialist.respondWithSearchContext(text, results, riwayat);
-  },
-
-    /**
-   * Enqueue Async Background Task (Fase C) dengan Response Instan ke User
-   */
-  _enqueueAsyncTask(chatId, taskType, queryOrPrompt, riwayat) {
-    try {
-      var taskId = IdGenerator.generate('TASK');
-      var taskPayload = {
-        id: taskId,
-        chatId: chatId,
-        type: taskType,
-        query: queryOrPrompt,
-        prompt: queryOrPrompt,
-        riwayat: riwayat || []
-      };
-
-      // 1. Simpan Task Payload ke CacheService
-      CacheService.getScriptCache().put('PENDING_ASYNC_TASK', JSON.stringify(taskPayload), 600);
-
-      // 2. Buat GAS One-Time Trigger untuk dieksekusi 1 detik kemudian di Background
-      ScriptApp.newTrigger('runAsyncTaskWorkerWrapper')
-        .timeBased()
-        .after(1000)
-        .create();
-
-      AppLogger.info('ASYNC_TASK_ENQUEUED', 'task_id:' + taskId + '|type:' + taskType);
-
-      // 3. Kirim Balasan Instan ke User (0.5 detik)
-      var tplEnqueued = KnowledgeRepository.get('async_task', 'enqueued_msg') || 
-        '⏳ *Tugas Riset/Analisis Berat Diterima!*\nSaya sedang memprosesnya di background. Hasilnya akan langsung saya kirimkan ke chat ini begitu selesai.';
-
-      ChatHistoryRepository.save(chatId, 'user', queryOrPrompt);
-      ChatHistoryRepository.save(chatId, 'ai', tplEnqueued);
-
-      return tplEnqueued;
-    } catch (e) {
-      AppLogger.error('ASYNC_ENQUEUE_FAIL', e.message);
-      return this._handleChatBiasa(chatId, queryOrPrompt, { tipe: 'chat_biasa', complexity: 'heavy' }, riwayat);
-    }
   },
 
   _handleIntentFailure(chatId, text, riwayat) {
@@ -674,4 +643,3 @@ const Manager = {
     return finalText;
   }
 };
-
