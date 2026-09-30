@@ -1,6 +1,6 @@
 /**
  * ===================================================================
- * REPOSITORY: FINANCE TRANSACTION
+ * REPOSITORY: FINANCE TRANSACTION (TEXTFINDER FAST SEARCH)
  * ===================================================================
  */
 const TransactionRepository = {
@@ -28,7 +28,7 @@ const TransactionRepository = {
   _mapRow(row, rowIndex) {
     return {
       rowIndex,
-      _rowIndex: rowIndex, // Solusi defensif untuk ketidaksesuaian pemanggilan _rowIndex
+      _rowIndex: rowIndex,
       id: row[0],
       timestamp: new Date(row[1]),
       walletId: row[2],
@@ -59,8 +59,30 @@ const TransactionRepository = {
     return active.length > 0 ? active[active.length - 1] : null;
   },
 
+  /**
+   * Fast Search Transaction ID menggunakan TextFinder di Kolom A (0ms latency)
+   */
   findById(id) {
-    return this.getActive().find(t => t.id === id) || null;
+    if (!id) return null;
+    const sheet = SpreadsheetGateway.getSheet(this.SHEET_NAME);
+    if (sheet.getLastRow() < 2) return null;
+
+    const cell = sheet.getRange('A:A')
+      .createTextFinder(String(id).trim())
+      .matchEntireCell(true)
+      .matchCase(true)
+      .findNext();
+
+    if (!cell) return null;
+
+    const rowIndex = cell.getRow();
+    if (rowIndex < 2) return null;
+
+    const row = sheet.getRange(rowIndex, 1, 1, 9).getValues()[0];
+    const mapped = this._mapRow(row, rowIndex);
+
+    // Cek status keaktifan
+    return mapped.status === this.STATUS_ACTIVE ? mapped : null;
   },
 
   getByWallet(walletId) {
