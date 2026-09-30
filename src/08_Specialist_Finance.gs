@@ -1,10 +1,9 @@
 /**
  * ===================================================================
- * SPESIALIS: FINANCE (MONEY TRACKER V19.3 ADAPTER - 100% PASAL 1.2 COMPLIANT)
- * Tanggung jawab: Akses ke Tracker V19.3, validasi options,
- * bulletproof amount parser, parameter alias extraction, UUID v4,
- * pure date parsing, smart note cleaner, dan penulisan LockService.
- * ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE.
+ * SPESIALIS: FINANCE (MONEY TRACKER V19.3 ADAPTER WITH WALLET RESOLVER)
+ * Tanggung jawab: Akses ke Tracker V19.3, pencocokan otomatis nama wallet
+ * (misal "QRIS BCA" -> "BCA [Bayu]"), pembersihan catatan struk belanja,
+ * dan penulisan LockService. 100% Pasal 1.2 Compliant.
  * ===================================================================
  */
 const FinanceSpecialist = {
@@ -77,6 +76,48 @@ const FinanceSpecialist = {
     return 0;
   },
 
+  /**
+   * Smart Wallet Resolver: Mencocokkan teks pembayaran (misal "QRIS BCA") ke Akun Resmi Tracker V19.3
+   */
+  resolveWalletAccount(inputText, validAccounts) {
+    if (!validAccounts || !Array.isArray(validAccounts) || validAccounts.length === 0) {
+      return '';
+    }
+
+    if (!inputText || String(inputText).trim().length === 0) {
+      return validAccounts[0]; // Fallback ke akun pertama jika kosong
+    }
+
+    var clean = String(inputText).toLowerCase().trim();
+
+    // 1. Exact / Full match
+    for (var i = 0; i < validAccounts.length; i++) {
+      if (validAccounts[i].toLowerCase() === clean) return validAccounts[i];
+    }
+
+    // 2. Substring match (misal "BCA" cocok ke "BCA [Bayu]")
+    for (var j = 0; j < validAccounts.length; j++) {
+      var accLower = validAccounts[j].toLowerCase();
+      if (clean.indexOf(accLower) !== -1 || accLower.indexOf(clean) !== -1) {
+        return validAccounts[j];
+      }
+    }
+
+    // 3. Keyword extraction (misal "QRIS BCA" -> cari kata "bca" atau "qris")
+    var words = clean.split(/\s+/);
+    for (var w = 0; w < words.length; w++) {
+      var word = words[w];
+      if (word.length <= 2) continue;
+      for (var k = 0; k < validAccounts.length; k++) {
+        if (validAccounts[k].toLowerCase().indexOf(word) !== -1) {
+          return validAccounts[k];
+        }
+      }
+    }
+
+    return validAccounts[0];
+  },
+
   prepareDraft(data) {
     var rawText = data.deskripsi || data.text || '';
     
@@ -104,9 +145,11 @@ const FinanceSpecialist = {
 
     var validCats = typeFormatted === 'Income' ? options.incomeCategories : options.expenseCategories;
     var matchedCat = this._findMatch(category, validCats);
-    var matchedAcc = this._findMatch(account, options.accounts);
+    
+    // Smart Wallet Resolver ke Akun Resmi Tracker V19.3
+    var matchedAcc = this.resolveWalletAccount(account, options.accounts);
 
-    var cleanNotesText = this._cleanNotes(notesInput, account, rawAmt);
+    var cleanNotesText = this._cleanNotes(notesInput, matchedAcc || account, rawAmt);
 
     var baseDraft = {
       id: Utilities.getUuid(),
@@ -114,8 +157,8 @@ const FinanceSpecialist = {
       type: typeFormatted,
       category: matchedCat || category || '',
       amount: rawAmt,
-      from: typeFormatted === 'Income' ? '' : (typeFormatted === 'Transfer' ? fromAccount : (matchedAcc || account || '')),
-      to: typeFormatted === 'Expense' ? '' : (typeFormatted === 'Transfer' ? toAccount : (matchedAcc || account || '')),
+      from: typeFormatted === 'Income' ? '' : (typeFormatted === 'Transfer' ? fromAccount : (matchedAcc || account || options.accounts[0] || '')),
+      to: typeFormatted === 'Expense' ? '' : (typeFormatted === 'Transfer' ? toAccount : (matchedAcc || account || options.accounts[0] || '')),
       fee: Number(data.fee) || 0,
       notes: cleanNotesText
     };
@@ -129,19 +172,6 @@ const FinanceSpecialist = {
         code: 'AWAITING_CATEGORY',
         attempted: category,
         validOptions: validCats,
-        draft: baseDraft
-      };
-    }
-
-    if (!matchedAcc && typeFormatted !== 'Transfer') {
-      baseDraft.pendingField = 'ACCOUNT';
-      baseDraft.validOptions = options.accounts;
-      KnowledgeRepository.save('finance', 'pending_draft', JSON.stringify(baseDraft), 'AWAITING_ACCOUNT');
-      return {
-        success: false,
-        code: 'AWAITING_ACCOUNT',
-        attempted: account,
-        validOptions: options.accounts,
         draft: baseDraft
       };
     }
@@ -327,6 +357,8 @@ const FinanceSpecialist = {
     if (!rawText) return defaultNote;
     var str = String(rawText).trim();
 
+    str = str.replace(/^\[Analisis Foto\/Struk\/Dokumen\]:\s*/i, '');
+    str = str.replace(/[\*\+]/g, '');
     str = str.replace(/\b(hari ini|kemarin|besok|lusa|tadi|pagi ini|siang ini|sore ini|malam ini)\b/gi, '');
 
     if (walletName && walletName.length > 0) {
