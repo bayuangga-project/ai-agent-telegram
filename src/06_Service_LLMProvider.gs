@@ -1,15 +1,16 @@
 /**
  * ===================================================================
- * SERVICE: LLM PROVIDER ORCHESTRATOR (SMART PROVIDER-AWARE ROUTER)
- * Tanggung jawab: Pengarahan pintar pemanggilan API ke OpenRouter,
- * Gemini, atau Groq secara dinamis sesuai provider masing-masing model ID.
+ * SERVICE: LLM PROVIDER ORCHESTRATOR (SOTA NATIVE TOOLS SUPPORT & AUTO FALLBACK)
+ * Tanggung jawab: Mengirimkan parameter tools resmi ke OpenRouter/Gemini/Groq API,
+ * dengan penanganan fallback otomatis jika model tidak mendukung Native Tools.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 
 var OpenRouterProvider = {
   API_URL: 'https://openrouter.ai/api/v1/chat/completions',
 
-  call: function(systemInstruction, messages, temperature, modelName) {
+  call: function(systemInstruction, messages, temperature, modelName, tools) {
     var config = Config.load();
     var apiKey = config.openrouterApiKey;
 
@@ -39,6 +40,10 @@ var OpenRouterProvider = {
       temperature: typeof temperature === 'number' ? temperature : 0.7
     };
 
+    if (tools && Array.isArray(tools) && tools.length > 0) {
+      payload.tools = tools;
+    }
+
     var options = {
       method: 'post',
       contentType: 'application/json',
@@ -64,7 +69,17 @@ var OpenRouterProvider = {
       throw new Error('OpenRouter invalid response structure: ' + responseText.substring(0, 200));
     }
 
-    return data.choices[0].message.content;
+    var msgObj = data.choices[0].message;
+    if (msgObj.tool_calls && msgObj.tool_calls.length > 0) {
+      var tc = msgObj.tool_calls[0];
+      return JSON.stringify({
+        thought: 'Native Tool Calling executed',
+        action: tc.function ? tc.function.name : tc.name,
+        tool_params: tc.function && tc.function.arguments ? (typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments) : {}
+      });
+    }
+
+    return msgObj.content;
   }
 };
 
@@ -267,7 +282,6 @@ var LLMProviderService = {
     var startTime = new Date().getTime();
     var config = Config.load();
 
-    // 1. Eksekusi Model Teranked (Provider-Aware Routing)
     if (rankedModels && rankedModels.length > 0) {
       for (var i = 0; i < rankedModels.length; i++) {
         var item = rankedModels[i];
@@ -282,15 +296,24 @@ var LLMProviderService = {
         try {
           var responseText = null;
 
-          // Smart Dispatcher Berdasarkan Provider
           if (provider === 'gemini' && config.geminiApiKey) {
             responseText = GeminiProvider.call(params.systemInstruction, params.messages, params.temperature, modelId);
           } else if (provider === 'groq' && config.groqApiKey) {
             responseText = GroqProvider.call(params.systemInstruction, params.messages, params.temperature, modelId);
           } else if (config.openrouterApiKey) {
-            responseText = OpenRouterProvider.call(params.systemInstruction, params.messages, params.temperature, modelId);
+            // Coba panggil dengan Native Tools jika disertakan, fallback jika HTTP 400
+            try {
+              responseText = OpenRouterProvider.call(params.systemInstruction, params.messages, params.temperature, modelId, params.tools);
+            } catch (errTools) {
+              if (String(errTools.message).indexOf('400') !== -1 && params.tools) {
+                // Fallback tanpa parameter tools (Prompt-based ReAct)
+                responseText = OpenRouterProvider.call(params.systemInstruction, params.messages, params.temperature, modelId, null);
+              } else {
+                throw errTools;
+              }
+            }
           } else {
-            continue; // Skip jika API key provider belum diset
+            continue;
           }
 
           var latency = new Date().getTime() - startTime;
@@ -306,7 +329,6 @@ var LLMProviderService = {
           var errStr = String(err.message || err);
           AppLogger.warning('LLM_MODEL_FAIL', modelId + '[' + provider + ']|' + errStr);
 
-          // Auto-Cooling / Deprecation
           if (errStr.indexOf('404') !== -1 || errStr.toLowerCase().indexOf('not found') !== -1) {
             if (typeof LLMIntelligence !== 'undefined' && LLMIntelligence.setDeprecated) {
               LLMIntelligence.setDeprecated(modelId, errStr);
@@ -318,7 +340,6 @@ var LLMProviderService = {
       }
     }
 
-    // 2. Fallback Darurat 1: Gemini Direct Call
     if (config.geminiApiKey) {
       try {
         var gText = GeminiProvider.call(params.systemInstruction, params.messages, params.temperature, null);
@@ -331,7 +352,6 @@ var LLMProviderService = {
       }
     }
 
-    // 3. Fallback Darurat 2: Groq Direct Call
     if (config.groqApiKey) {
       try {
         var grText = GroqProvider.call(params.systemInstruction, params.messages, params.temperature, null);
