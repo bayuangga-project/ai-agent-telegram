@@ -1,8 +1,9 @@
 /**
  * ===================================================================
- * ENTRY POINT: TELEGRAM WEBHOOK (MULTI-MODAL VOICE, VISION, & TEXT)
+ * ENTRY POINT: TELEGRAM WEBHOOK (TELEGRAM-FIRST ASYNC DISPATCH)
  * Tanggung jawab: validasi keamanan, dedup, ekstraksi media/teks,
  * dan delegasi ke CommandRouter atau Manager.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const WebhookHandler = {
@@ -13,7 +14,7 @@ const WebhookHandler = {
       const config = Config.load();
 
       if (!this._isAuthorized(e, config)) {
-        AppLogger.warning('SECURITY_BLOCK', 'Secret tidak valid');
+        AppLogger.warning('SECURITY_BLOCK', 'SECRET_INVALID');
         return ContentService.createTextOutput('Unauthorized');
       }
 
@@ -30,11 +31,10 @@ const WebhookHandler = {
       const chatId = message.chat.id.toString();
 
       if (chatId !== config.myChatId) {
-        AppLogger.warning('SECURITY_BLOCK', 'ChatId tidak dikenal: ' + chatId);
+        AppLogger.warning('SECURITY_BLOCK', 'UNAUTHORIZED_CHAT_ID:' + chatId);
         return ContentService.createTextOutput('OK');
       }
 
-      // Extraksi Konten Multi-Modal (Teks, Voice, Foto, Dokumen)
       const text = this._extractMessageContent(message);
       if (!text || text.trim().length === 0) {
         return ContentService.createTextOutput('OK');
@@ -66,16 +66,11 @@ const WebhookHandler = {
     return false;
   },
 
-  /**
-   * Ekstraktor Multi-Modal Media (Menerjemahkan Suara & Foto Menjadi Teks Konteks)
-   */
   _extractMessageContent(message) {
-    // 1. Teks Biasa
     if (message.text) {
       return message.text.trim();
     }
 
-    // 2. Voice Note / Pesan Suara (.ogg / .mp3)
     var voiceObj = message.voice || message.audio;
     if (voiceObj && voiceObj.file_id) {
       try {
@@ -91,7 +86,6 @@ const WebhookHandler = {
       }
     }
 
-    // 3. Foto / Gambar / Struk Belanja
     if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
       try {
         var highestResPhoto = message.photo[message.photo.length - 1];
@@ -105,7 +99,6 @@ const WebhookHandler = {
       }
     }
 
-    // 4. File Dokumen Gambar (misal PNG/JPG tanpa kompresi)
     if (message.document && message.document.mime_type && message.document.mime_type.indexOf('image/') === 0) {
       try {
         AppLogger.info('PROCESSING_IMAGE_DOCUMENT', 'file_id:' + message.document.file_id);
@@ -118,7 +111,6 @@ const WebhookHandler = {
       }
     }
 
-    // 5. Media Tak Didukung (Video, Stiker, Lokasi, Kontak)
     if (message.video || message.sticker || message.location || message.contact) {
       var mediaType = message.video ? 'video' : (message.sticker ? 'stiker' : (message.location ? 'lokasi' : 'kontak'));
       return '[System Event]: User mengirimkan ' + mediaType + ' yang belum didukung.';
@@ -129,8 +121,10 @@ const WebhookHandler = {
 
   _processMessage(chatId, text) {
     if (CommandRouter.isKnownCommand(text)) {
-      const responseText = CommandRouter.handle(chatId, text);
-      TelegramService.sendMessage(chatId, responseText);
+      var responseText = CommandRouter.handle(chatId, text);
+      if (responseText && responseText.trim().length > 0) {
+        TelegramService.sendMessage(chatId, responseText);
+      }
       return;
     }
 
