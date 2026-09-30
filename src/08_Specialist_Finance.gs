@@ -384,12 +384,38 @@ const FinanceSpecialist = {
     return str.charAt(0).toUpperCase() + str.slice(1);
   },
 
+  /**
+   * Parse Tanggal Midnight 00:00:00 WIB Murni (Metode Identik Web App Tracker V19.3)
+   * Kebal terhadap Date Offset GMT+7 (Jam 07:00:00 Leaking).
+   */
   _parsePureDate(dateInput) {
     if (!dateInput) return new Date();
-    var d = dateInput instanceof Date ? dateInput : new Date(dateInput);
-    if (isNaN(d.getTime())) d = new Date();
-    var wib = DateTimeUtils.toWIB(d);
-    return new Date(wib.getFullYear(), wib.getMonth(), wib.getDate());
+    
+    var year, month, day;
+
+    if (typeof dateInput === 'string') {
+      var parts = dateInput.trim().split('T')[0].split('-');
+      if (parts.length === 3) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      }
+    } else if (dateInput instanceof Date) {
+      var wib = DateTimeUtils.toWIB(dateInput);
+      year = wib.getFullYear();
+      month = wib.getMonth();
+      day = wib.getDate();
+    }
+
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      var nowWib = DateTimeUtils.nowWIB();
+      year = nowWib.getFullYear();
+      month = nowWib.getMonth();
+      day = nowWib.getDate();
+    }
+
+    // Konstruktor Numerik Lokal: Tepat Jam 00:00:00 WIB
+    return new Date(year, month, day);
   },
 
   _findMatch(query, validList) {
