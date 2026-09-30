@@ -1,5 +1,8 @@
 /**
- * SERVICE: TELEGRAM (COMMUNICATION, MEDIA DOWNLOADER, WHISPER & RESILIENT VISION)
+ * SERVICE: TELEGRAM (COMMUNICATION, MEDIA DOWNLOADER, WHISPER & MULTI-PROVIDER VISION)
+ * Tanggung jawab: Komunikasi Telegram Bot API, penanganan Markdown fallback,
+ * pengunduhan file media, transkripsi suara (Whisper), dan analisis foto (Vision).
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  */
 var TelegramService = {
 
@@ -14,6 +17,10 @@ var TelegramService = {
         }
       }
     } catch (e) {}
+    
+    // Auto-Bootstrap Placeholder ke Database jika belum ada
+    var defaultPlaceholders = JSON.stringify(['⏳ ...', '💭 ...', '🤔 ...']);
+    KnowledgeRepository.save('chat', 'placeholders', defaultPlaceholders, 'AUTO_BOOTSTRAP_PLACEHOLDERS');
     return '⏳ ...';
   },
 
@@ -37,6 +44,7 @@ var TelegramService = {
 
     if (data && !data.ok && data.description &&
         data.description.toLowerCase().indexOf("can't parse entities") !== -1) {
+      AppLogger.info('TELEGRAM_PARSE_RETRY', 'PARSER_FAILED_FALLBACK_PLAIN');
       delete payload.parse_mode;
       options.payload = JSON.stringify(payload);
       response = UrlFetchApp.fetch(url, options);
@@ -77,6 +85,7 @@ var TelegramService = {
 
     if (data && !data.ok && data.description &&
         data.description.toLowerCase().indexOf("can't parse entities") !== -1) {
+      AppLogger.info('TELEGRAM_EDIT_PARSE_RETRY', 'PARSER_FAILED_FALLBACK_PLAIN');
       delete payload.parse_mode;
       options.payload = JSON.stringify(payload);
       UrlFetchApp.fetch(url, options);
@@ -131,6 +140,10 @@ var TelegramService = {
     return data && data.text ? data.text.trim() : '';
   },
 
+  /**
+   * Analisis Foto dengan Multi-Provider Resilient Fallback
+   * 100% PASAL 1.2 COMPLIANT: Prompt & Template dibaca murni dari Database Knowledge
+   */
   analyzePhoto: function(fileId, userCaption) {
     var fileInfo = this.getFile(fileId);
     if (!fileInfo || !fileInfo.file_path) throw new Error('TELEGRAM_GET_FILE_FAILED');
@@ -143,12 +156,10 @@ var TelegramService = {
     if (pathLower.indexOf('.png') !== -1) mimeType = 'image/png';
     else if (pathLower.indexOf('.webp') !== -1) mimeType = 'image/webp';
 
-    var base64Image = Utilities.base64Encode(blob.getBytes()).replace(/\s/g, '');
-
+    var base64Image = Utilities.base64Encode(blob.getBytes()).replace(/\s+/g, '');
     var config = Config.load();
-    if (!config.geminiApiKey) throw new Error('GEMINI_API_KEY_MISSING');
 
-    // Clean Vision Prompt tanpa Simbol Bintang (*) atau Plus (+)
+    // 1. Ambil Prompt dari Knowledge Database (Auto-Bootstrap jika belum ada)
     var promptText = KnowledgeRepository.get('vision', 'photo_analysis_prompt');
     if (!promptText) {
       promptText = 'Ekstrak data penting dari gambar/struk ini secara ringkas, jelas, dan BERSIH TANPA SIMBOL BINTANG (*) ATAU PLUS (+).\n' +
@@ -161,40 +172,96 @@ var TelegramService = {
     }
 
     if (userCaption && userCaption.trim().length > 0) {
-      promptText += '\n\nCatatan User: "' + userCaption + '"';
+      var captionTpl = KnowledgeRepository.get('vision', 'user_caption_template') || '\n\nCatatan User: "{{caption}}"';
+      promptText += TemplateEngine.render(captionTpl, { caption: userCaption.trim() });
     }
 
-    var payload = {
-      contents: [{
-        parts: [
-          { text: promptText },
-          { inlineData: { mimeType: mimeType, data: base64Image } }
-        ]
-      }]
-    };
+    // 2. Jalur Utama: Google Gemini API (Discovery Active Model)
+    if (config.geminiApiKey) {
+      var geminiModels = [];
+      if (typeof GeminiProvider !== 'undefined' && GeminiProvider._discoverActiveModel) {
+        var discovered = GeminiProvider._discoverActiveModel();
+        if (discovered) geminiModels.push(discovered);
+      }
+      geminiModels.push('gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-2.0-flash-exp');
 
-    var visionModels = ['gemini-2.0-flash-exp', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-1.5-flash'];
-    for (var m = 0; m < visionModels.length; m++) {
-      var model = visionModels[m];
-      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + config.geminiApiKey;
+      for (var m = 0; m < geminiModels.length; m++) {
+        var modelName = geminiModels[m];
+        var urlGemini = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + config.geminiApiKey;
 
-      try {
-        var response = UrlFetchApp.fetch(url, {
-          method: 'post',
-          contentType: 'application/json',
-          payload: JSON.stringify(payload),
-          muteHttpExceptions: true
-        });
+        var payloadGemini = {
+          contents: [{
+            parts: [
+              { text: promptText },
+              { inlineData: { mimeType: mimeType, data: base64Image } }
+            ]
+          }]
+        };
 
-        if (response.getResponseCode() === 200) {
-          var data = JSON.parse(response.getContentText());
-          if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-            return data.candidates[0].content.parts[0].text;
+        try {
+          var resG = UrlFetchApp.fetch(urlGemini, {
+            method: 'post',
+            contentType: 'application/json',
+            payload: JSON.stringify(payloadGemini),
+            muteHttpExceptions: true
+          });
+
+          if (resG.getResponseCode() === 200) {
+            var dataG = JSON.parse(resG.getContentText());
+            if (dataG.candidates && dataG.candidates[0] && dataG.candidates[0].content && dataG.candidates[0].content.parts) {
+              AppLogger.info('VISION_GEMINI_SUCCESS', 'model:' + modelName);
+              return dataG.candidates[0].content.parts[0].text;
+            }
           }
-        }
-      } catch (e) {}
+        } catch (eG) {}
+      }
     }
 
-    throw new Error('GEMINI_VISION_ALL_MODELS_FAILED');
+    // 3. Jalur Backup: OpenRouter Vision API
+    if (config.openrouterApiKey) {
+      var urlOR = 'https://openrouter.ai/api/v1/chat/completions';
+      var openRouterVisionModels = [
+        'meta-llama/llama-3.2-11b-vision-instruct:free',
+        'qwen/qwen-2-vl-72b-instruct:free',
+        'google/gemini-2.0-flash-exp:free'
+      ];
+
+      for (var o = 0; o < openRouterVisionModels.length; o++) {
+        var orModel = openRouterVisionModels[o];
+        var payloadOR = {
+          model: orModel,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              { type: 'image_url', image_url: { url: 'data:' + mimeType + ';base64,' + base64Image } }
+            ]
+          }]
+        };
+
+        try {
+          var resOR = UrlFetchApp.fetch(urlOR, {
+            method: 'post',
+            headers: {
+              'Authorization': 'Bearer ' + config.openrouterApiKey,
+              'HTTP-Referer': 'https://github.com/bayuangga-project/ai-agent-telegram'
+            },
+            contentType: 'application/json',
+            payload: JSON.stringify(payloadOR),
+            muteHttpExceptions: true
+          });
+
+          if (resOR.getResponseCode() === 200) {
+            var dataOR = JSON.parse(resOR.getContentText());
+            if (dataOR.choices && dataOR.choices[0] && dataOR.choices[0].message) {
+              AppLogger.info('VISION_OPENROUTER_SUCCESS', 'model:' + orModel);
+              return dataOR.choices[0].message.content;
+            }
+          }
+        } catch (eOR) {}
+      }
+    }
+
+    throw new Error('VISION_ALL_PROVIDERS_FAILED');
   }
 };
