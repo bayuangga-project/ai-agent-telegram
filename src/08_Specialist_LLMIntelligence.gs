@@ -1,6 +1,9 @@
 /**
  * ===================================================================
  * SPESIALIS: LLM INTELLIGENCE (LLM_MODELS SHEET REGISTRY ENGINE)
+ * Tanggung jawab: Auto-Discovery model live gratis, autonomous benchmarking,
+ * dynamic task ranking (10 TaskTypes), dan auto-cooling/deprecation management.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const LLMIntelligence = {
@@ -12,6 +15,9 @@ const LLMIntelligence = {
     return SpreadsheetGateway.ensureSheet(this.SHEET_NAME, this.HEADERS);
   },
 
+  /**
+   * TAHAP 1: 100% PURE DYNAMIC DISCOVERY DARI 3 ENDPOINT API RESMI
+   */
   discoverModels() {
     this._ensureSheet();
     AppLogger.info('LLM_DISCOVERY_START', 'fetching_live_api_pure_dynamic');
@@ -25,6 +31,7 @@ const LLMIntelligence = {
 
     var config = Config.load();
 
+    // 1. DYNAMIC DISCOVERY: OpenRouter API (/v1/models)
     if (config.openrouterApiKey) {
       try {
         var urlOR = 'https://openrouter.ai/api/v1/models';
@@ -66,6 +73,7 @@ const LLMIntelligence = {
       }
     }
 
+    // 2. DYNAMIC DISCOVERY: Google Gemini API (/v1beta/models)
     if (config.geminiApiKey) {
       try {
         var urlGemini = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + config.geminiApiKey;
@@ -102,6 +110,7 @@ const LLMIntelligence = {
       }
     }
 
+    // 3. DYNAMIC DISCOVERY: Groq API (/v1/models)
     if (config.groqApiKey) {
       try {
         var urlGroq = 'https://api.groq.com/openai/v1/models';
@@ -145,6 +154,9 @@ const LLMIntelligence = {
     return { status: 'success', new_discovered: newDiscovered };
   },
 
+  /**
+   * TAHAP 2: AUTONOMOUS BENCHMARKING (Batch Max 3 Model)
+   */
   benchmarkBatch() {
     this._ensureSheet();
     var startTime = new Date().getTime();
@@ -187,10 +199,14 @@ const LLMIntelligence = {
     return { status: 'success', tested_count: testedCount };
   },
 
+  /**
+   * TAHAP 3: DYNAMIC TASK RANKING (MEMADUKAN SELURUH 10 TASKTYPE RESMI PROYEK)
+   */
   rankModels() {
     var models = this._getAllModelRows();
     var now = new Date().getTime();
 
+    // 1. Pulihkan status COOLDOWN yang sudah habis waktunya
     for (var i = 0; i < models.length; i++) {
       var m = models[i];
       if (m.status === 'COOLDOWN' && m.cooldown_until) {
@@ -202,10 +218,12 @@ const LLMIntelligence = {
       }
     }
 
+    // 2. Filter HANYA model aktif & gratis yang diizinkan
     var activeModels = models.filter(function(item) {
       return item.status === 'ACTIVE' && item.is_free === true;
     });
 
+    // 3. Urutkan berdasarkan Quality Score DESC, lalu Latency ASC
     activeModels.sort(function(a, b) {
       if (b.quality_score !== a.quality_score) {
         return b.quality_score - a.quality_score;
@@ -224,21 +242,35 @@ const LLMIntelligence = {
       ];
     }
 
+    // Pemetaan khusus koding/analisis untuk task tipe koding
+    var codeRankedObjects = activeModels.slice().sort(function(a, b) {
+      return (b.quality_score * 2 - b.avg_latency_ms / 100) - (a.quality_score * 2 - a.avg_latency_ms / 100);
+    }).map(function(item) {
+      return { model_id: item.model_id, provider: item.provider };
+    });
+
+    // 4. MEMADUKAN LENGKAP SELURUH 10 TASKTYPE RESMI PROYEK
     var matrix = {
       chat_light: rankedObjects,
       chat_heavy: rankedObjects,
       intent_analysis: rankedObjects,
-      code_analysis: rankedObjects,
-      code_generation: rankedObjects,
+      code_analysis: codeRankedObjects.length > 0 ? codeRankedObjects : rankedObjects,
+      code_generation: codeRankedObjects.length > 0 ? codeRankedObjects : rankedObjects,
       documentation: rankedObjects,
-      web_grounded: rankedObjects
+      web_grounded: rankedObjects,
+      finance_response: rankedObjects,
+      docsync_analysis: codeRankedObjects.length > 0 ? codeRankedObjects : rankedObjects,
+      benchmark_probe: rankedObjects
     };
 
-    KnowledgeRepository.save('llm_routing', 'matrix', JSON.stringify(matrix), 'DYNAMIC_RANKING');
-    AppLogger.info('LLM_RANKING_UPDATED', 'active_ranked_count:' + rankedObjects.length);
+    KnowledgeRepository.save('llm_routing', 'matrix', JSON.stringify(matrix), 'DYNAMIC_RANKING_10_TASKS');
+    AppLogger.info('LLM_RANKING_UPDATED', 'active_ranked_count:' + rankedObjects.length + '|tasks:10');
     return { status: 'success', ranked_count: rankedObjects.length, top_3: rankedObjects.slice(0, 3) };
   },
 
+  /**
+   * TAHAP 4: AUTO-COOLING & DEPRECATION MANAGEMENT
+   */
   setCooldown(modelId, durationSeconds, reason) {
     var until = new Date(new Date().getTime() + ((durationSeconds || 1800) * 1000));
     var untilStr = DateTimeUtils.formatUntukPrompt(until);
@@ -253,6 +285,7 @@ const LLMIntelligence = {
 
   /**
    * Mengembalikan daftar Objek { model_id, provider } yang sudah ter-ranking
+   * Dilengkapi Dynamic Fallback ke chat_light jika taskType belum terdaftar
    */
   getRankedModelObjectsForTask(taskType) {
     var matrixRaw = KnowledgeRepository.get('llm_routing', 'matrix');
@@ -265,7 +298,6 @@ const LLMIntelligence = {
       var list = matrix[taskType] || matrix['chat_light'] || [];
       if (!Array.isArray(list)) return [];
 
-      // Backward compatibility jika berisi string ID
       return list.map(function(item) {
         if (typeof item === 'string') {
           var prov = 'openrouter';
@@ -362,6 +394,9 @@ const LLMIntelligence = {
     return text;
   },
 
+  // -------------------------------------------------------------------
+  // HELPER METODE PERSISTENSI SHEET LLM_Models
+  // -------------------------------------------------------------------
   _getAllModelRows() {
     try {
       var sheet = this._ensureSheet();
