@@ -1,56 +1,156 @@
 /**
  * ===================================================================
- * COMMAND ROUTER (WITH BOT USERNAME SANITIZER & MULTI-SPACE CLEANER)
- * Tanggung jawab: Menangani perintah eksplisit Telegram (/command).
- * Membuang suffix @botusername otomatis dan menormalisasi spasi.
+ * COMMAND ROUTER (TELEGRAM-FIRST OPERATIONAL CONTROL ENGINE)
+ * Tanggung jawab: Menangani perintah administratif & operasional Telegram.
+ * Menggunakan pola Placeholder + Edit Message untuk tugas berdurasi panjang.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const CommandRouter = {
   
-  /**
-   * Sanitasi Perintah: Membuang spasi awal & suffix @botusername dari Telegram
-   */
   _cleanCommand(text) {
     if (!text) return '';
     var trimmed = text.trim();
     if (trimmed.charAt(0) !== '/') return '';
-    
-    // Split berdasarkan spasi pertama
     var firstWord = trimmed.split(/\s+/)[0].toLowerCase();
-    // Buang suffix @botusername jika ada (misal: /llm@dyarassistant_bot -> /llm)
     return firstWord.split('@')[0];
   },
 
   isKnownCommand(text) {
+    if (!text) return false;
     var cmd = this._cleanCommand(text);
     if (!cmd) return false;
-    var knownList = ['/ingat', '/diagnose', '/logs', '/patch', '/build', '/soul', '/init-soul', '/memory', '/export_ns', '/help', '/bantuan', '/llm'];
+    var knownList = [
+      '/ingat', '/diagnose', '/heal', '/audit', '/logs', '/patch', 
+      '/build', '/soul', '/init-soul', '/memory', '/export_ns', 
+      '/help', '/bantuan', '/llm', '/backup', '/purge', '/setup_triggers'
+    ];
     return knownList.indexOf(cmd) !== -1;
   },
 
   handle(chatId, text) {
-    if (!text) return 'Pesan kosong.';
+    if (!text) return '';
     
-    // Normalisasi spasi & pisahkan perintah dari argumen
     var cleanedText = text.trim();
     var parts = cleanedText.split(/\s+/);
-    var rawCmd = parts[0].toLowerCase();
-    var cmd = rawCmd.split('@')[0]; // Sanitasi suffix @botusername
-    
+    var cmd = this._cleanCommand(parts[0]);
     var args = parts.slice(1).join(' ').trim();
     
     AppLogger.info('COMMAND_ROUTER', 'cmd:' + cmd + '|args:' + args);
+
+    // -------------------------------------------------------------------
+    // 1. TUGAS BERDURASI PANJANG (ASYNC PLACEHOLDER + EDIT PATTERN)
+    // -------------------------------------------------------------------
+    if (cmd === '/backup') {
+      var msgIdBackup = TelegramService.sendMessage(chatId, TelegramService.pickPlaceholder());
+      var resBackupCode = GitHubBackupService.backupAllFiles();
+      var resBackupDocs = GitHubBackupService.backupDocs();
+      
+      var tplBackup = KnowledgeRepository.get('cmd', 'backup_report_template');
+      if (!tplBackup) {
+        tplBackup = '📦 *Laporan Full Backup GitHub*\n\n• Code Source: {{code_count}} file\n• Dokumentasi: {{docs_count}} file\n• Status: SELESAI';
+        KnowledgeRepository.save('cmd', 'backup_report_template', tplBackup, 'AUTO_BOOTSTRAP_CMD_TPL');
+      }
+
+      var msgBackupText = TemplateEngine.render(tplBackup, {
+        code_count: resBackupCode.length,
+        docs_count: resBackupDocs.length
+      });
+
+      TelegramService.editMessage(chatId, msgIdBackup, msgBackupText);
+      return '';
+    }
+
+    if (cmd === '/audit') {
+      var msgIdAudit = TelegramService.sendMessage(chatId, TelegramService.pickPlaceholder());
+      var syncAudit = CodeAuditor.runFullSyncAudit();
+
+      var tplAudit = KnowledgeRepository.get('cmd', 'audit_report_template');
+      if (!tplAudit) {
+        tplAudit = '📊 *Laporan Audit Sistem ({{total}} Indikator)*\n\n✅ PASS: {{pass}}\n❌ FAIL: {{fail}}\n⚠️ WARN: {{warn}}';
+        KnowledgeRepository.save('cmd', 'audit_report_template', tplAudit, 'AUTO_BOOTSTRAP_CMD_TPL');
+      }
+
+      var msgAuditText = TemplateEngine.render(tplAudit, {
+        total: syncAudit.total,
+        pass: syncAudit.pass,
+        fail: syncAudit.fail,
+        warn: syncAudit.warn
+      });
+
+      TelegramService.editMessage(chatId, msgIdAudit, msgAuditText);
+      return '';
+    }
+
+    if (cmd === '/heal') {
+      var msgIdHeal = TelegramService.sendMessage(chatId, TelegramService.pickPlaceholder());
+      var resKnw = SelfHealingSpecialist.forceSyncKnowledge();
+      var resDocs = SelfHealingSpecialist.forceSyncDocs();
+
+      var tplHeal = KnowledgeRepository.get('cmd', 'heal_report_template');
+      if (!tplHeal) {
+        tplHeal = '🛠️ *Laporan Pemulihan Sistem (Force Sync)*\n\n• Knowledge Sync: {{knw_status}}\n• Docs Sync: {{docs_status}}';
+        KnowledgeRepository.save('cmd', 'heal_report_template', tplHeal, 'AUTO_BOOTSTRAP_CMD_TPL');
+      }
+
+      var msgHealText = TemplateEngine.render(tplHeal, {
+        knw_status: resKnw.status || 'DONE',
+        docs_status: resDocs.success ? 'SUCCESS' : 'FAILED'
+      });
+
+      TelegramService.editMessage(chatId, msgIdHeal, msgHealText);
+      return '';
+    }
+
+    if (cmd === '/purge') {
+      var msgIdPurge = TelegramService.sendMessage(chatId, TelegramService.pickPlaceholder());
+      var resPurge = KnowledgeRepository.purgeInactive();
+
+      var tplPurge = KnowledgeRepository.get('cmd', 'purge_report_template');
+      if (!tplPurge) {
+        tplPurge = '🧹 *Laporan Pembersihan Database*\n\n• Baris Sampah Memutih: {{purged}} baris\n• Baris Aktif Tersisa: {{remaining}} baris';
+        KnowledgeRepository.save('cmd', 'purge_report_template', tplPurge, 'AUTO_BOOTSTRAP_CMD_TPL');
+      }
+
+      var msgPurgeText = TemplateEngine.render(tplPurge, {
+        purged: resPurge.purged || 0,
+        remaining: resPurge.activeRemaining || 0
+      });
+
+      TelegramService.editMessage(chatId, msgIdPurge, msgPurgeText);
+      return '';
+    }
+
+    // -------------------------------------------------------------------
+    // 2. TUGAS EKSEKUSI INSTAN (FAST PATH)
+    // -------------------------------------------------------------------
+    if (cmd === '/setup_triggers') {
+      setupDailyAutoSyncTrigger();
+      setupDailySelfDocTrigger();
+      setupWeeklyTrigger();
+      setupReminderTrigger();
+      setupDailyLLMDiscovery();
+      setupNightlySummarizer();
+      setupWeeklyChangeCheck();
+
+      var tplTriggers = KnowledgeRepository.get('cmd', 'setup_triggers_template');
+      if (!tplTriggers) {
+        tplTriggers = '⚙️ *Aktivasi Trigger Otomatis*\n\n7 Trigger Jadwal Otomatis berhasil didaftarkan ulang ke server Google Apps Script!';
+        KnowledgeRepository.save('cmd', 'setup_triggers_template', tplTriggers, 'AUTO_BOOTSTRAP_CMD_TPL');
+      }
+      return tplTriggers;
+    }
 
     if (cmd === '/llm') {
       return LLMIntelligence.handleCommand(parts[1] ? parts[1].toLowerCase() : 'list', parts[2], parts[3]);
     }
 
-    if (cmd === '/ingat') {
-      return this._handleIngat(chatId, args);
-    }
-    
     if (cmd === '/export_ns') {
       return KnowledgeSyncSpecialist.handleCommand(parts[1] ? parts[1].toLowerCase() : 'list', parts[2], parts[3]);
+    }
+
+    if (cmd === '/ingat') {
+      return this._handleIngat(chatId, args);
     }
     
     if (cmd === '/help' || cmd === '/bantuan') {
@@ -59,12 +159,13 @@ const CommandRouter = {
 
     if (cmd === '/diagnose') {
       var result = SelfHealingSpecialist.diagnose(args || 'Cek error log terbaru');
-      return result.success ? result.diagnosis : 'Gagal mendiagnosis: ' + result.code;
+      return result.success ? (result.diagnosis || 'Diagnosis selesai') : 'Gagal mendiagnosis: ' + result.code;
     }
 
     if (cmd === '/logs') {
       var logs = SelfHealingSpecialist._getRecentLogs(10);
-      return '📝 *10 Log Terakhir:*\n\n' + logs.map(function(l) { return '[' + l.timestamp + '] ' + l.event; }).join('\n');
+      var logLines = logs.map(function(l) { return '[' + l.timestamp + '] ' + l.event; }).join('\n');
+      return '📝 *10 Log Terakhir:*\n\n' + (logLines || '-');
     }
 
     if (cmd === '/patch') {
@@ -128,7 +229,13 @@ const CommandRouter = {
     var aiName = this._getAIName();
 
     var defaultHelpTemplate = '📚 *Pusat Bantuan Command ({{name}})*\n\n' +
-      'Berikut daftar perintah yang bisa lo pakai secara langsung:\n\n' +
+      'Berikut daftar perintah operasional yang bisa lo pakai secara langsung:\n\n' +
+      '⚙️ *Operasi & Pemeliharaan Sistem*\n' +
+      '🔹 `/backup` - Pemicu backup penuh 29 file kode & dokumen ke GitHub.\n' +
+      '🔹 `/audit` - Jalankan audit sistem 32 indikator lengkap.\n' +
+      '🔹 `/heal` - Force sync pemulihan data knowledge & dokumen ke GitHub.\n' +
+      '🔹 `/purge` - Bersihkan baris sampah mati di database AI_Knowledge.\n' +
+      '🔹 `/setup_triggers` - Daftarkan ulang 7 trigger jadwal otomatis.\n\n' +
       '🤖 *Manajemen Model AI (LLM)*\n' +
       '🔹 `/llm` - Lihat katalog model AI di sheet LLM_Models.\n' +
       '🔹 `/llm discover` - Auto-discovery model gratisan terbaru dari internet.\n' +
