@@ -1,8 +1,8 @@
 /**
  * ===================================================================
- * SERVICE: LLM PROVIDER ORCHESTRATOR (SOTA NATIVE TOOLS SUPPORT & AUTO FALLBACK)
- * Tanggung jawab: Mengirimkan parameter tools resmi ke OpenRouter/Gemini/Groq API,
- * dengan penanganan fallback otomatis jika model tidak mendukung Native Tools.
+ * SERVICE: LLM PROVIDER ORCHESTRATOR (SMART ROUTER & VECTOR EMBEDDING)
+ * Tanggung jawab: Komunikasi LLM OpenRouter/Gemini/Groq, Native Tools,
+ * serta pembangkitan Vector Embedding (text-embedding-004 / embedding-001).
  * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
@@ -14,9 +14,7 @@ var OpenRouterProvider = {
     var config = Config.load();
     var apiKey = config.openrouterApiKey;
 
-    if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY_MISSING');
-    }
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY_MISSING');
 
     var targetModel = modelName || config.openrouterModelFast;
     var formattedMessages = [];
@@ -149,6 +147,44 @@ var GeminiProvider = {
     }
   },
 
+  /**
+   * Dual-Model Gemini Vector Embedding Generator (text-embedding-004 / embedding-001)
+   */
+  getEmbedding: function(text) {
+    var config = Config.load();
+    if (!config.geminiApiKey || !text || String(text).trim().length === 0) return null;
+
+    var embeddingModels = ['text-embedding-004', 'embedding-001'];
+    var cleanText = String(text).substring(0, 2000).trim();
+
+    for (var i = 0; i < embeddingModels.length; i++) {
+      var embedModel = embeddingModels[i];
+      var url = this.API_BASE + '/models/' + embedModel + ':embedContent?key=' + config.geminiApiKey;
+      var payload = {
+        model: 'models/' + embedModel,
+        content: { parts: [{ text: cleanText }] }
+      };
+
+      try {
+        var response = UrlFetchApp.fetch(url, {
+          method: 'post',
+          contentType: 'application/json',
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
+
+        if (response.getResponseCode() === 200) {
+          var data = JSON.parse(response.getContentText());
+          if (data && data.embedding && data.embedding.values && Array.isArray(data.embedding.values)) {
+            return data.embedding.values;
+          }
+        }
+      } catch (e) {}
+    }
+
+    return null;
+  },
+
   call: function(systemInstruction, messages, temperature, modelName) {
     var config = Config.load();
     var apiKey = config.geminiApiKey;
@@ -214,9 +250,7 @@ var GroqProvider = {
 
   call: function(systemInstruction, messages, temperature, modelName) {
     var config = Config.load();
-    if (!config.groqApiKey) {
-      throw new Error('GROQ_API_KEY_MISSING');
-    }
+    if (!config.groqApiKey) throw new Error('GROQ_API_KEY_MISSING');
 
     var targetModel = modelName || this.MODEL;
     var chatMessages = [];
@@ -258,9 +292,7 @@ var GroqProvider = {
 
     var data = JSON.parse(response.getContentText());
     var choice = data.choices && data.choices[0];
-    if (!choice || !choice.message) {
-      throw new Error('GROQ_EMPTY_RESPONSE');
-    }
+    if (!choice || !choice.message) throw new Error('GROQ_EMPTY_RESPONSE');
 
     return choice.message.content;
   }
@@ -268,6 +300,15 @@ var GroqProvider = {
 
 var LLMProviderService = {
   COOLDOWN_SECONDS: 1800,
+
+  getEmbedding: function(text) {
+    try {
+      if (typeof GeminiProvider !== 'undefined' && GeminiProvider.getEmbedding) {
+        return GeminiProvider.getEmbedding(text);
+      }
+    } catch (e) {}
+    return null;
+  },
 
   generate: function(params) {
     var taskType = params.taskType || 'chat_light';
@@ -278,6 +319,10 @@ var LLMProviderService = {
     } catch (e) {
       rankedModels = [];
     }
+
+    rankedModels = (rankedModels || []).filter(function(m) {
+      return m && typeof m === 'string' && m.trim().length > 0;
+    });
 
     var startTime = new Date().getTime();
     var config = Config.load();
@@ -301,12 +346,10 @@ var LLMProviderService = {
           } else if (provider === 'groq' && config.groqApiKey) {
             responseText = GroqProvider.call(params.systemInstruction, params.messages, params.temperature, modelId);
           } else if (config.openrouterApiKey) {
-            // Coba panggil dengan Native Tools jika disertakan, fallback jika HTTP 400
             try {
               responseText = OpenRouterProvider.call(params.systemInstruction, params.messages, params.temperature, modelId, params.tools);
             } catch (errTools) {
               if (String(errTools.message).indexOf('400') !== -1 && params.tools) {
-                // Fallback tanpa parameter tools (Prompt-based ReAct)
                 responseText = OpenRouterProvider.call(params.systemInstruction, params.messages, params.temperature, modelId, null);
               } else {
                 throw errTools;
