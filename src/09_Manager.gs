@@ -618,6 +618,46 @@ const Manager = {
     return ChatSpecialist.respondWithSearchContext(text, results, riwayat);
   },
 
+    /**
+   * Enqueue Async Background Task (Fase C) dengan Response Instan ke User
+   */
+  _enqueueAsyncTask(chatId, taskType, queryOrPrompt, riwayat) {
+    try {
+      var taskId = IdGenerator.generate('TASK');
+      var taskPayload = {
+        id: taskId,
+        chatId: chatId,
+        type: taskType,
+        query: queryOrPrompt,
+        prompt: queryOrPrompt,
+        riwayat: riwayat || []
+      };
+
+      // 1. Simpan Task Payload ke CacheService
+      CacheService.getScriptCache().put('PENDING_ASYNC_TASK', JSON.stringify(taskPayload), 600);
+
+      // 2. Buat GAS One-Time Trigger untuk dieksekusi 1 detik kemudian di Background
+      ScriptApp.newTrigger('runAsyncTaskWorkerWrapper')
+        .timeBased()
+        .after(1000)
+        .create();
+
+      AppLogger.info('ASYNC_TASK_ENQUEUED', 'task_id:' + taskId + '|type:' + taskType);
+
+      // 3. Kirim Balasan Instan ke User (0.5 detik)
+      var tplEnqueued = KnowledgeRepository.get('async_task', 'enqueued_msg') || 
+        '⏳ *Tugas Riset/Analisis Berat Diterima!*\nSaya sedang memprosesnya di background. Hasilnya akan langsung saya kirimkan ke chat ini begitu selesai.';
+
+      ChatHistoryRepository.save(chatId, 'user', queryOrPrompt);
+      ChatHistoryRepository.save(chatId, 'ai', tplEnqueued);
+
+      return tplEnqueued;
+    } catch (e) {
+      AppLogger.error('ASYNC_ENQUEUE_FAIL', e.message);
+      return this._handleChatBiasa(chatId, queryOrPrompt, { tipe: 'chat_biasa', complexity: 'heavy' }, riwayat);
+    }
+  },
+
   _handleIntentFailure(chatId, text, riwayat) {
     AppLogger.error('MANAGER_INTENT_FAILURE', 'task:chat_light');
     var result = LLMProviderService.generate({
@@ -634,3 +674,4 @@ const Manager = {
     return finalText;
   }
 };
+
