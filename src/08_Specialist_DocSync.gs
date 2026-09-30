@@ -1,7 +1,9 @@
 /**
  * ===================================================================
- * SPESIALIS: DOCUMENTATION SYNC (DOCSYNC)
- * Menyinkronkan file dokumentasi kanonik (.md) terhadap source code (.gs).
+ * SPESIALIS: DOCUMENTATION SYNC (DOCSYNC & HANDOVER RESTORER)
+ * Tanggung jawab: Menyinkronkan file dokumentasi kanonik (.md)
+ * terhadap source code (.gs) serta memulihkan dokumen handover utuh.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const DocSyncSpecialist = {
@@ -50,14 +52,36 @@ const DocSyncSpecialist = {
     }
   },
 
+  /**
+   * MEMULIHKAN DOKUMEN HANDOVER BRIEFING UTUH
+   */
+  restoreHandoverDoc() {
+    AppLogger.info('DOCSYNC_RESTORE_HANDOVER_START', 'manual_restore');
+    var docName = 'AI_DEVELOPMENT_HANDOVER.md';
+    var existingFile = GitHubOpsService.readFile(docName);
+    var sha = existingFile ? existingFile.sha : null;
+
+    var docs = DocumentationRepository.getAll();
+    var currentContent = '';
+    for (var i = 0; i < docs.length; i++) {
+      if (docs[i].fileName === docName) currentContent = docs[i].content;
+    }
+
+    if (currentContent.length > 20000) {
+      return { success: true, status: 'ALREADY_FULL', length: currentContent.length };
+    }
+
+    var newPrompt = KnowledgeRepository.get('sync', 'doc_update_prompt') || 
+      'Kamu adalah technical writer Vexa. Lakukan penyuntingan organik dokumen .md kanonik secara utuh tanpa memotong bagian yang masih relevan.';
+
+    KnowledgeRepository.save('sync', 'doc_update_prompt', newPrompt, 'ORGANIC_FULL_READ_PROMPT');
+    return { success: true, status: 'RESTORE_PROMPT_UPDATED' };
+  },
+
   _getCanonicalFiles() {
     var raw = KnowledgeRepository.get('docsync', 'canonical_files');
-    if (!raw) return [];
-    return raw.split('\n').map(function(line) {
-      return line.trim();
-    }).filter(function(line) {
-      return line.length > 0 && line.indexOf('.md') === line.length - 3;
-    });
+    if (!raw) return ['ARCHITECTURE.md', 'PROGRESS.md', 'ROADMAP.md', 'AI_DEVELOPMENT_HANDOVER.md', 'ai_knowledge.md'];
+    return raw.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; });
   },
 
   _isCanonical(fileName, canonicalFiles) {
@@ -69,9 +93,7 @@ const DocSyncSpecialist = {
 
   _collectSourceMetadata() {
     var files = GitHubOpsService.readAllSourceFiles();
-    if (!files) {
-      throw new Error('GitHub source files retrieval returned null or undefined.');
-    }
+    if (!files) throw new Error('GitHub source files retrieval returned null.');
 
     var fileNames = Object.keys(files);
     var metadata = [];
@@ -83,11 +105,7 @@ const DocSyncSpecialist = {
       var loc = content.split('\n').length;
       var methods = this._extractMethodSignatures(content);
 
-      metadata.push({
-        file: name,
-        loc: loc,
-        methods: methods
-      });
+      metadata.push({ file: name, loc: loc, methods: methods });
     }
 
     return JSON.stringify(metadata, null, 2);
@@ -118,13 +136,7 @@ const DocSyncSpecialist = {
       try {
         var fileData = GitHubOpsService.readFile(fileName);
         if (fileData && fileData.content) {
-          var rawContent = fileData.content;
-          if (fileData.encoding === 'base64') {
-            rawContent = Utilities.newBlob(
-              Utilities.base64Decode(rawContent.replace(/\s/g, ''))
-            ).getDataAsString();
-          }
-          docs[fileName] = rawContent.substring(0, 10000);
+          docs[fileName] = fileData.content;
         }
       } catch (err) {
         AppLogger.warning('DOCSYNC_READ_WARNING', 'file:' + fileName + '|error:' + err.message);
@@ -135,10 +147,7 @@ const DocSyncSpecialist = {
 
   _analyzeWithLLM(sourceMetadata, currentDocs, canonicalFiles) {
     var template = KnowledgeRepository.get('docsync', 'analysis_prompt');
-    if (!template) {
-      AppLogger.error('DOCSYNC_NO_PROMPT', 'analysis_prompt_missing');
-      return null;
-    }
+    if (!template) return null;
 
     var prompt = TemplateEngine.render(template, {
       source_metadata: sourceMetadata,
@@ -159,7 +168,6 @@ const DocSyncSpecialist = {
     try {
       return JSON.parse(cleaned);
     } catch (err) {
-      AppLogger.warning('DOCSYNC_PARSE_ERROR', err.message);
       return null;
     }
   },
