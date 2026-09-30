@@ -121,6 +121,9 @@ Jawab HANYA JSON murni tanpa markdown: {"calc": 47 * 23, "logic": "Apakah semua 
 ## benchmark:pattern_logic
 "logic"\s*:\s*"tidak"
 
+## chat:placeholders
+["⏳ ...","💭 ...","🤔 ..."]
+
 ## docsync:response
 Proses sinkronisasi dokumentasi telah selesai.
 Berikut data hasil eksekusi:
@@ -313,14 +316,21 @@ Berikut rincian teknis kegagalan:
 Tugasmu: Sampaikan kendala ini kepada pengguna secara natural dan langsung tanpa istilah teknis pemrograman.
 Jelaskan data apa yang salah atau kurang agar pengguna dapat mengulangi dengan benar.
 
+## finance:pending_draft
+{"id":"842f6bf7-d770-4f07-94e6-f704f7c061fe","date":"2026-09-30","type":"Expense","category":"Supplies","amount":65000,"from":"BCA [Bayu]","to":"","fee":0,"notes":"Belanja di Toko GBK Plastik Bedahan"}
+
 ## help:command_list
 📚 *Pusat Bantuan Command ({{name}})*
 
 Berikut daftar perintah yang bisa lo pakai secara langsung:
 
+🤖 *Manajemen Model AI (LLM)*
+🔹 `/llm` - Lihat katalog model AI di sheet LLM_Models.
+🔹 `/llm discover` - Auto-discovery model gratisan terbaru dari internet.
+🔹 `/llm bench` - Uji tingkat kecerdasan model secara otomatis.
+
 🔧 *Sistem & Dokumentasi*
 🔹 `/export_ns` - Atur namespace apa saja yang di-export ke GitHub.
-     _(Contoh: `/export_ns list`, `/export_ns add [nama]`)_
 🔹 `/diagnose` - Cek dan perbaiki error log terbaru.
 🔹 `/logs` - Lihat 10 log aktivitas terakhir sistem.
 🔹 `/patch [id]` - Terapkan perbaikan kode dari GitHub.
@@ -329,11 +339,7 @@ Berikut daftar perintah yang bisa lo pakai secara langsung:
 🔹 `/ingat [fakta]` - Simpan fakta penting permanen.
 🔹 `/memory` - Lihat ringkasan memori jangka panjang (7 hari terakhir).
 
-🤖 *Jiwa & Kepribadian*
-🔹 `/soul` - Cek status profil kepribadian dan versi {{name}}.
-🔹 `/init-soul` - Reset/Inisialisasi ulang identitas {{name}}.
-
-💡 _Semua aksi lain seperti catat keuangan atau tambah fitur, bisa langsung di-chat biasa pakai bahasa natural aja!_
+💡 _Semua aksi lain seperti catat keuangan atau percakapan biasa, tinggal di-chat aja!_
 
 ## intent:persona
 Kamu adalah AI Agent dengan kepribadian mandiri, objektif, dan presisi. Bertindaklah berdasarkan fakta yang tersimpan di database.
@@ -738,6 +744,9 @@ ATURAN PERILAKU ABSOLUT (DILARANG DILANGGAR)
 1. DILARANG KERAS menyatakan kamu "belum memiliki nama" atau "masih dalam tahap awal perkembangan identitas" jika namamu sudah {{name}}!
 2. Jawablah secara JUJUR & FAKTUAL berdasarkan data konteks. Jangan pernah mengarang data/saldo/fakta.
 3. Jawablah secara RINGKAS & DIRECT TO THE POINT.
+
+## soul:stack_contract
+{"platform":"Google Apps Script V8 (.gs)","database":"Google Sheets (SpreadsheetGateway) & Money Tracker V19.3","configStorage":"Script Properties (PropertiesService)","codeFramework":"Object Literals (const X = {})","bannedHallucinations":[".env","Node.js","npm","index.js","process.env","express","GoogleGenAI SDK","llm_service.py","agent_runner.py"]}
 
 ## sync:export_namespaces
 ["intent","soul","tools","finance","docsync","benchmark","selfheal","feature","roadmap","agent","sync","chat","audit","selfaware","help"]
