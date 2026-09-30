@@ -258,50 +258,34 @@ const Manager = {
     var toolsRegistry = KnowledgeRepository.get('tools', 'registry') || '[]';
     var template = KnowledgeRepository.get('agent', 'planning_prompt');
 
-    if (!template) {
-      template = '{{persona}}\n\n' +
-        'Waktu saat ini: {{now}} WIB.\n\n' +
-        '=== DAFTAR TOOL TERSEDIA ===\n' +
-        '{{tools_registry}}\n\n' +
-        '=== RIWAYAT PERCAKAPAN ===\n' +
-        '{{riwayat}}\n\n' +
-        '=== FAKTA RELEVAN ===\n' +
-        '{{fakta}}\n\n' +
-        '=== PROFIL USER ===\n' +
-        '{{profil}}\n\n' +
-        '=== OBSERVASI SEBELUMNYA ===\n' +
-        '{{observations}}\n\n' +
-        '=== PESAN USER ===\n' +
-        '"{{user_message}}"\n\n' +
-        'TUGAS:\n' +
-        'Analisis pesan user. Pilih tool yang paling tepat dari DAFTAR TOOL TERSEDIA di atas.\n' +
-        '- Jika user ingin cek saldo atau tanya uang/dompet -> PILIH ACTION: "tanya_saldo"\n' +
-        '- Jika user ingin catat pengeluaran/pemasukan -> PILIH ACTION: "catat_keuangan"\n' +
-        '- Jika user hanya mengobrol biasa -> PILIH ACTION: "final_answer"\n\n' +
-        'ATURAN OUTPUT (Balas HANYA JSON murni tanpa markdown):\n' +
-        '{\n' +
-        '  "thought": "penjelasan singkat pemikiranmu",\n' +
-        '  "action": "nama_tool_dari_registry ATAU final_answer",\n' +
-        '  "tool_params": { "wallet": "nama_wallet_jika_ada", "jumlah": 0 },\n' +
-        '  "final_answer": "jawaban langsung jika action = final_answer"\n' +
-        '}';
+    // 1. Injeksi Opsi Akun Sah & Kategori Sah dari Tracker V19.3
+    var trackerOptions = FinanceSpecialist.getValidOptions();
+    var validAccountsStr = trackerOptions.accounts.length > 0 ? trackerOptions.accounts.join(', ') : 'Cash, BCA';
+    var validCategoriesStr = trackerOptions.expenseCategories.length > 0 ? trackerOptions.expenseCategories.join(', ') : 'Food & Drink, Supplies';
 
-      KnowledgeRepository.save('agent', 'planning_prompt', template, 'AUTO_BOOTSTRAP_REACT_PROMPT');
-    }
+    // 2. Injeksi Grounding Peta Kode Fisik & Full Canonical Docs untuk Self-Awareness Sejati
+    var selfData = SelfAwareness.review('all').system_metrics;
+    var codeIndexSample = SelfAwareness.searchCodeLocation(userText);
+    var codeIndexStr = codeIndexSample.length > 0 ? JSON.stringify(codeIndexSample) : '-';
 
     var variables = {
       persona: persona,
       now: DateTimeUtils.formatUntukPrompt(DateTimeUtils.nowWIB()),
       tools_registry: toolsRegistry,
       riwayat: IntentAnalyzer._formatRiwayat(context.riwayat),
-      fakta: IntentAnalyzer._formatList(context.facts),
+      fakta: IntentAnalyzer._formatList(context.facts) + 
+             '\n- AKUN WALLET VALID TRACKER V19.3: ' + validAccountsStr + 
+             '\n- KATEGORI VALID TRACKER V19.3: ' + validCategoriesStr + 
+             '\n- PETA FISIK KODE (.GS): ' + codeIndexStr +
+             '\n- KONTRAK ARCHITECTURE & HANDOVER: ' + JSON.stringify(selfData.canonicalDocsContent),
       profil: IntentAnalyzer._formatList(context.profile),
       ltm: IntentAnalyzer._formatList(context.ltm),
       observations: JSON.stringify(observations, null, 2),
       user_message: userText
     };
 
-    return TemplateEngine.render(template, variables);
+    if (template) return TemplateEngine.render(template, variables);
+    return persona + '\nTools: ' + toolsRegistry + '\nUser: ' + userText;
   },
 
   _parseAgentPlan(rawText) {
