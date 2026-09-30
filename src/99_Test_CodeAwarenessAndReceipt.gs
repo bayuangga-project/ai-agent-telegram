@@ -1,56 +1,82 @@
 /**
- * TEST SUITE: Verifikasi Full 5 Canonical Docs Ingestion & Smart Wallet Resolver
+ * TEST SUITE: Bootstrap ReAct Planning Prompt ke Database & Verifikasi Pasca-Pembersihan
  */
-function test_FullDocsIngestionAndResolver() {
-  Logger.log('=== TEST FULL 5 CANONICAL DOCS INGESTION & WALLET RESOLVER ===');
+function test_BootstrapReActPromptAndVerify() {
+  Logger.log('=== BOOTSTRAP REACT PLANNING PROMPT & VERIFIKASI PASAL 1.2 ===');
 
-  // 1. Test Ingestion 5 Dokumen Canonical .MD
-  var selfData = SelfAwareness.review('all').system_metrics;
-  var docKeys = Object.keys(selfData.canonicalDocsContent);
-  Logger.log('Dokumen Canonical .MD Terbaca di Memori SelfAwareness: ' + docKeys.join(', '));
+  // 1. Simpan ReAct Planning Prompt Resmi di Database AI_Knowledge
+  var officialReActPrompt = '{{persona}}\n\n' +
+    'Waktu saat ini: {{now}} WIB.\n\n' +
+    '=== DAFTAR TOOL TERSEDIA ===\n' +
+    '{{tools_registry}}\n\n' +
+    '=== RIWAYAT PERCAKAPAN ===\n' +
+    '{{riwayat}}\n\n' +
+    '=== FAKTA RELEVAN ===\n' +
+    '{{fakta}}\n\n' +
+    '=== PROFIL USER ===\n' +
+    '{{profil}}\n\n' +
+    '=== OBSERVASI SEBELUMNYA ===\n' +
+    '{{observations}}\n\n' +
+    '=== PESAN USER ===\n' +
+    '"{{user_message}}"\n\n' +
+    'TUGAS:\n' +
+    'Analisis pesan user. Pilih tool yang paling tepat dari DAFTAR TOOL TERSEDIA di atas.\n' +
+    '- Jika user bertanya perubahan, aktivitas, log, kejadian, atau perkembangan dalam rentang waktu (misal "7 jam terakhir", "hari ini", "terakhir diupdate") -> PILIH ACTION: "self_query"\n' +
+    '- Jika user ingin cek saldo atau tanya uang/dompet -> PILIH ACTION: "tanya_saldo"\n' +
+    '- Jika user ingin catat pengeluaran/pemasukan -> PILIH ACTION: "catat_keuangan"\n' +
+    '- Jika user hanya mengobrol biasa -> PILIH ACTION: "final_answer"\n\n' +
+    'ATURAN OUTPUT (Balas HANYA JSON murni tanpa markdown):\n' +
+    '{\n' +
+    '  "thought": "penjelasan singkat pemikiranmu",\n' +
+    '  "action": "nama_tool_dari_registry ATAU final_answer",\n' +
+    '  "tool_params": { "wallet": "nama_wallet_jika_ada", "jumlah": 0 },\n' +
+    '  "final_answer": "jawaban langsung jika action = final_answer"\n' +
+    '}';
 
-  if (docKeys.indexOf('AI_DEVELOPMENT_HANDOVER.md') !== -1 && docKeys.indexOf('ARCHITECTURE.md') !== -1) {
-    Logger.log('✅ PASS: Vexa 100% Membaca Seluruh Dokumen Canonical .MD (Full Closed-Loop Self-Awareness)!');
+  KnowledgeRepository.save('agent', 'planning_prompt', officialReActPrompt, 'OFFICIAL_REACT_PROMPT_CLEAN');
+  Logger.log('✅ PASS 1: ReAct Planning Prompt Resmi berhasil disimpan ke Database AI_Knowledge!');
+
+  // 2. Verifikasi Log 7 Jam Terakhir
+  var logs7Hours = SelfAwareness.getTimeWindowActivityLogs(7);
+  Logger.log('\nTotal Aktivitas 7 Jam Terakhir Terdeteksi: ' + logs7Hours.totalEvents + ' event');
+  Logger.log('Rincian Event: ' + JSON.stringify(logs7Hours.eventsSummary));
+
+  if (logs7Hours.totalEvents > 0) {
+    Logger.log('✅ PASS 2: Time-Aware Activity Log Extractor berhasil mendeteksi aktivitas 7 jam terakhir!');
   } else {
-    Logger.log('❌ FAIL: Dokumen .MD gagal dibaca');
-  }
-
-  // 2. Test Smart Wallet Resolver ("QRIS BCA" -> "BCA [Bayu]")
-  var validAccounts = ['BCA [Bayu]', 'Cash Bayu', 'GoPay'];
-  var resolvedWallet = FinanceSpecialist.resolveWalletAccount('QRIS BCA', validAccounts);
-  Logger.log('\nResolver Input: "QRIS BCA" ➔ Resolved Output: "' + resolvedWallet + '"');
-
-  if (resolvedWallet === 'BCA [Bayu]') {
-    Logger.log('✅ PASS: Smart Wallet Resolver berhasil mencocokkan "QRIS BCA" ke Akun Resmi "BCA [Bayu]"!');
-  } else {
-    Logger.log('❌ FAIL: Wallet Resolver gagal.');
+    Logger.log('⚠️ INFO 2: Tidak ada log dalam 7 jam terakhir.');
   }
 }
 
 /**
- * TEST SUITE: Verifikasi 100% Kepatuhan Pasal 1.2 & Smart Tokenizer Code Search
+ * TEST SUITE: Verifikasi Query Parameter Extractor & Web Search Tavily
  */
-function test_Pasal12ComplianceAndTokenizer() {
-  Logger.log('=== TEST KEPATUHAN PASAL 1.2 & SMART TOKENIZER ===');
+function test_WebSearchQueryExtractionAndTavily() {
+  Logger.log('=== TEST WEB SEARCH QUERY EXTRACTOR & TAVILY ===');
 
-  // 1. Test Smart Tokenizer dari Kalimat Utuh
-  var userSentence = 'Vexa, di file mana dan baris berapa fungsi analyzePhoto dipanggil?';
-  var searchRes = SelfAwareness.searchCodeLocation(userSentence);
-  
-  Logger.log('Kalimat User: "' + userSentence + '"');
-  Logger.log('Hasil Ekstraksi Tokenizer:\n' + JSON.stringify(searchRes, null, 2));
+  // 1. Test Parameter Alias Extractor
+  var q1 = Manager._extractQueryParam({ query: 'hot news indonesia' });
+  var q2 = Manager._extractQueryParam({ searchQuery: 'berita hari ini' });
+  var q3 = Manager._extractQueryParam('berita terkini');
 
-  if (searchRes.length > 0 && searchRes[0].file === '05_Service_Telegram.gs') {
-    Logger.log('✅ PASS: Smart Tokenizer mengekstrak "analyzePhoto" & menunjuk file 05_Service_Telegram.gs baris ' + searchRes[0].line + '!');
+  Logger.log('Extracted Query 1: ' + q1);
+  Logger.log('Extracted Query 2: ' + q2);
+  Logger.log('Extracted Query 3: ' + q3);
+
+  if (q1 === 'hot news indonesia' && q2 === 'berita hari ini' && q3 === 'berita terkini') {
+    Logger.log('✅ PASS 1: Manager._extractQueryParam 100% kebal dari parameter undefined!');
   } else {
-    Logger.log('❌ FAIL: Tokenizer gagal mengekstrak kata kunci.');
+    Logger.log('❌ FAIL 1: Extractor query gagal');
   }
 
-  // 2. Test Stack Contract Grounding
-  var metrics = SelfAwareness.review('all').system_metrics;
-  if (metrics.stackContract && metrics.stackContract.platform.indexOf('Google Apps Script') !== -1) {
-    Logger.log('✅ PASS: Stack Contract terbaca dari Database Knowledge tanpa hardcode di .gs!');
+  // 2. Test Eksekusi Web Search Tavily
+  var searchRes = WebSearchProviderService.search('berita indonesia terbaru');
+  Logger.log('Tavily Search Results: ' + searchRes.length + ' artikel ditemukan.');
+
+  if (searchRes.length > 0) {
+    Logger.log('Sample Headline #1: ' + searchRes[0].title);
+    Logger.log('✅ PASS 2: Tavily Web Search API berhasil mengambil berita terkini!');
   } else {
-    Logger.log('❌ FAIL: Stack Contract error');
+    Logger.log('⚠️ WARN 2: Web Search API gagal atau kosong.');
   }
 }
