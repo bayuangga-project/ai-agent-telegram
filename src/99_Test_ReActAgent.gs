@@ -137,3 +137,26 @@ function test_VerifyReActPlanningPromptIdentity() {
     Logger.log('❌ FAIL: ReAct Planning Prompt masih menerima tag mentah / tidak membaca nama Vexa.');
   }
 }
+
+/**
+ * TEST SUITE: Verifikasi Auto-Bootstrap ReAct Planning Prompt
+ */
+function test_ReActPlanningPromptAutoBootstrap() {
+  Logger.log('=== TEST AUTO-BOOTSTRAP RE-ACT PLANNING PROMPT ===');
+
+  // 1. Panggil _buildPlanningPrompt untuk pemicu Auto-Bootstrap
+  var ctx = Manager._gatherContext();
+  var promptText = Manager._buildPlanningPrompt('cek saldo', ctx, []);
+
+  Logger.log('Preview ReAct Prompt:\n' + promptText.substring(0, 300) + '...');
+
+  // 2. Verifikasi ketersediaan aturan format JSON di dalam prompt
+  var hasJsonRule = promptText.indexOf('ATURAN OUTPUT') !== -1;
+  var hasActionRule = promptText.indexOf('tanya_saldo') !== -1;
+
+  if (hasJsonRule && hasActionRule) {
+    Logger.log('✅ PASS: ReAct Planning Prompt berhasil di-bootstrap dengan aturan format JSON & Tool Rules lengkap!');
+  } else {
+    Logger.log('❌ FAIL: ReAct Planning Prompt masih belum memiliki aturan format JSON.');
+  }
+}
