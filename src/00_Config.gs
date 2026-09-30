@@ -26,6 +26,10 @@ const Config = {
       githubRepoName: props.getProperty('GITHUB_REPO_NAME'),
       githubBranch: props.getProperty('GITHUB_BRANCH') || 'main',
       
+      // Tracking V19.3 Config
+      trackingSpreadsheetId: props.getProperty('TRACKING_SPREADSHEET_ID') || '1TEm-hUthR0aI_-Af4bniBa2Oo84cfS6BZnYVVMtFt3I',
+      myEmail: props.getProperty('MY_EMAIL') || '',
+
       // OpenRouter & Provider Tambahan
       openrouterApiKey: props.getProperty('OPENROUTER_API_KEY'),
       cfAccountId: props.getProperty('CF_ACCOUNT_ID'),
