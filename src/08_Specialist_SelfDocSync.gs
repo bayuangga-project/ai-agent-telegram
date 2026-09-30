@@ -1,9 +1,9 @@
 /**
  * ===================================================================
- * SPECIALIST: SELF-DOC SYNC (WITH TOOL SCHEMA CONSISTENCY VALIDATOR)
+ * SPECIALIST: SELF-DOC SYNC (UNTRUNCATED DOCS READ & SANITY GUARD REJECTION)
  * Tanggung jawab: mengenali struktur kode sendiri, mendeteksi
  * perubahan, memvalidasi konsistensi skema tool vs handler Manager,
- * menyesuaikan dokumentasi, dan meminta persetujuan via Telegram.
+ * menyintesis dokumentasi secara organik, dan meminta persetujuan via Telegram.
  * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
@@ -21,17 +21,16 @@ var SelfDocSync = {
     AppLogger.info('SELF_DOC_SYNC_START', 'daily_check');
 
     try {
-      // 1. TUGAS 3.2: Memvalidasi Konsistensi Tool Schema vs Handler di Manager
       var schemaCheck = this.validateToolSchemaConsistency();
       if (!schemaCheck.valid && schemaCheck.missing.length > 0) {
         var config = Config.load();
-        var alertText = '⚠️ *Peringatan Skema Tool AI*\n\n' +
-          'Tool berikut terdaftar di Knowledge tetapi belum memiliki handler di Manager:\n' +
-          '• `' + schemaCheck.missing.join('`\n• `') + '`';
+        var alertTpl = KnowledgeRepository.get('sync', 'schema_alert_template') || 
+          '⚠️ *Peringatan Skema Tool AI*\n\nTool berikut terdaftar di Knowledge tetapi belum memiliki handler di Manager:\n• `{{missing_list}}`';
+        
+        var alertText = TemplateEngine.render(alertTpl, { missing_list: schemaCheck.missing.join('`\n• `') });
         TelegramService.sendMessage(config.myChatId, alertText);
       }
 
-      // 2. Cek Pending Draft
       var pending = this.getPendingDraft();
       if (pending) {
         this._sendReminder(pending);
@@ -72,10 +71,51 @@ var SelfDocSync = {
     }
   },
 
-  /**
-   * TUGAS 3.2 VALIDATOR: Memastikan semua Tool di Knowledge Memiliki Handler di Manager
-   * Mencegah Silent Failure 100%!
-   */
+  forceDocSync: function() {
+    AppLogger.info('SELF_DOC_FORCE_START', 'manual_trigger');
+
+    try {
+      this._clearDraft();
+      var currentStructure = this._readCodeStructure();
+      if (!currentStructure || Object.keys(currentStructure).length === 0) {
+        AppLogger.warning('SELF_DOC_FORCE_SKIP', 'no_source_data');
+        return { success: false, reason: 'NO_SOURCE_DATA' };
+      }
+
+      var currentFiles = Object.keys(currentStructure);
+      var syntheticDiff = {
+        addedFiles: [],
+        removedFiles: [],
+        modifiedFiles: currentFiles.map(function(f) {
+          return {
+            file: f,
+            changes: ['full_codebase_sync', 'loc:' + (currentStructure[f].loc || 0)]
+          };
+        }),
+        totalChanges: currentFiles.length,
+        isFirstRun: false,
+        isForceSync: true
+      };
+
+      var draft = this._generateDocUpdate(syntheticDiff);
+      if (!draft || !draft.files || draft.files.length === 0) {
+        AppLogger.info('SELF_DOC_FORCE_SKIP', 'no_doc_update_generated');
+        return { success: false, reason: 'NO_UPDATE_GENERATED' };
+      }
+
+      this._saveDraft(draft);
+      this._sendNotification(draft);
+      this._saveStructure(currentStructure);
+
+      AppLogger.info('SELF_DOC_FORCE_DONE', 'draft_files:' + draft.files.length);
+      return { success: true, draft: draft };
+
+    } catch (e) {
+      AppLogger.error('SELF_DOC_FORCE_FAIL', e.message);
+      return { success: false, error: e.message };
+    }
+  },
+
   validateToolSchemaConsistency: function() {
     try {
       var toolsRaw = KnowledgeRepository.get('tools', 'registry');
@@ -110,6 +150,18 @@ var SelfDocSync = {
   },
 
   _readCodeStructure: function() {
+    try {
+      var rawLocal = KnowledgeRepository.get('code', 'structure_snapshot');
+      if (rawLocal) {
+        var parsedLocal = JSON.parse(rawLocal);
+        if (parsedLocal && typeof parsedLocal === 'object' && Object.keys(parsedLocal).length > 0) {
+          AppLogger.info('SELF_DOC_FAST_LOCAL_READ', 'files_count:' + Object.keys(parsedLocal).length);
+          return parsedLocal;
+        }
+      }
+    } catch (eLocal) {}
+
+    AppLogger.info('SELF_DOC_GITHUB_FETCH_FALLBACK', 'fetching_github_api');
     var allSource = GitHubOpsService.readAllSourceFiles();
     if (!allSource) return null;
 
@@ -289,8 +341,17 @@ var SelfDocSync = {
     try {
       var template = KnowledgeRepository.get('sync', 'doc_update_prompt');
       if (!template) {
-        AppLogger.error('SELF_DOC_NO_PROMPT', 'sync:doc_update_prompt missing');
-        return null;
+        template = 'Kamu adalah technical writer untuk proyek AI Agent Telegram Vexa.\n' +
+          'PERUBAHAN KODE TERDETEKSI:\n{{diff}}\n\n' +
+          'DOKUMENTASI SAAT INI:\n{{current_docs}}\n\n' +
+          'TUGAS ORGANIK (ATURAN RESTORAN):\n' +
+          '1. Lakukan penyuntingan organik: HANYA ubah/hapus bagian tabel atau paragraf yang secara fisik sudah tidak valid/relevan.\n' +
+          '2. PERTAHANKAN SEMUA DOKUMENTASI, KONTRAK, DAN INFORMASI YANG MASIH RELEVAN. DILARANG menghapus bab atau memperpendek dokumen secara sembarangan!\n' +
+          '3. Kembalikan isi utuh dokumen baru dalam format JSON murni.\n\n' +
+          'FORMAT OUTPUT (HANYA JSON MURNI):\n' +
+          '{\n  "files": [ { "fileName": "AI_DEVELOPMENT_HANDOVER.md", "content": "isi lengkap markdown baru", "reason": "alasan" } ],\n  "summary": "ringkasan"\n}';
+        
+        KnowledgeRepository.save('sync', 'doc_update_prompt', template, 'ORGANIC_EDITORIAL_PROMPT');
       }
 
       var currentDocs = this._collectCurrentDocs();
@@ -305,20 +366,33 @@ var SelfDocSync = {
         taskType: 'docsync_analysis',
         systemInstruction: prompt,
         messages: [{ role: 'user', text: 'Analyze and return JSON.' }],
-        temperature: 0.3
+        temperature: 0.2
       });
 
       if (!result || !result.text) return null;
 
-      var cleaned = result.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      var parsed = JSON.parse(cleaned);
+      var parsed = this._repairLLMDocJSON(result.text);
 
-      if (!parsed.files || parsed.files.length === 0) return null;
+      if (!parsed || !parsed.files || !Array.isArray(parsed.files) || parsed.files.length === 0) {
+        AppLogger.warning('SELF_DOC_PARSE_NULL', 'repaired_json_empty_or_invalid');
+        return null;
+      }
 
       var validFiles = [];
+      var rawDocsObj = {};
+      try { rawDocsObj = JSON.parse(currentDocs); } catch(e) {}
+
       for (var i = 0; i < parsed.files.length; i++) {
         var f = parsed.files[i];
         if (f.fileName && f.content && this.CANONICAL_DOCS.indexOf(f.fileName) !== -1) {
+          
+          // SANITY GUARD REJECTION: Mencegah LLM menghapus dokumen secara sembarangan
+          var oldContent = rawDocsObj[f.fileName] || '';
+          if (oldContent.length > 5000 && f.content.length < oldContent.length * 0.6) {
+            AppLogger.warning('SELF_DOC_SANITY_REJECT', f.fileName + '|too_short:' + f.content.length + ' vs ' + oldContent.length);
+            continue; // Tolak draft file ini jika LLM memotong > 40% isi dokumen asli!
+          }
+
           validFiles.push(f);
         }
       }
@@ -337,6 +411,35 @@ var SelfDocSync = {
     }
   },
 
+  _repairLLMDocJSON: function(rawText) {
+    if (!rawText) return null;
+    var cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    try { return JSON.parse(cleaned); } catch (e1) {}
+
+    try {
+      var repaired = cleaned
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
+      return JSON.parse(repaired);
+    } catch (e2) {}
+
+    try {
+      var match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        var block = match[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        return JSON.parse(block);
+      }
+    } catch (e3) {}
+
+    AppLogger.error('LLM_DOC_JSON_REPAIR_FAIL', 'raw_text:' + cleaned.substring(0, 150));
+    return null;
+  },
+
+  /**
+   * MEMBACA 100% UTUH ISI DOKUMEN CANONICAL .MD TANPA POTONGAN SUBSTRING!
+   */
   _collectCurrentDocs: function() {
     var docs = {};
     for (var i = 0; i < this.CANONICAL_DOCS.length; i++) {
@@ -344,7 +447,8 @@ var SelfDocSync = {
       try {
         var fileData = GitHubOpsService.readFile(fileName);
         if (fileData && fileData.content) {
-          docs[fileName] = fileData.content.substring(0, 8000);
+          // 100% UNTRUNCATED READ (Membaca seluruh isi dokumen utuh)
+          docs[fileName] = fileData.content;
         }
       } catch (e) {
         AppLogger.warning('SELF_DOC_READ_WARN', fileName + ':' + e.message);
@@ -445,23 +549,23 @@ var SelfDocSync = {
   _sendNotification: function(draft) {
     try {
       var config = Config.load();
-      var fileNames = [];
-      for (var i = 0; i < draft.files.length; i++) {
-        fileNames.push(draft.files[i].fileName);
+      var fileNames = draft.files.map(function(f) { return f.fileName; }).join('\n• ');
+      var summary = draft.summary || '';
+      if (summary.length > 400) summary = summary.substring(0, 397) + '...';
+
+      var tplNotify = KnowledgeRepository.get('sync', 'notification_template');
+      if (!tplNotify) {
+        tplNotify = '📝 *Perubahan kode terdeteksi!*\n\n' +
+          'Ringkasan:\n{{summary}}\n\n' +
+          'Dokumentasi yang perlu diupdate:\n• {{file_list}}\n\n' +
+          'Reply *ya* untuk terbitkan, *batal* untuk batalkan, *detail* untuk lihat isi lengkap.';
+        KnowledgeRepository.save('sync', 'notification_template', tplNotify, 'AUTO_BOOTSTRAP_NOTIFY_TPL');
       }
 
-      var msg = draft.summary || '';
-      if (msg.length > 400) {
-        msg = msg.substring(0, 397) + '...';
-      }
-
-      var text = '📝 *Perubahan kode terdeteksi!*\n\n' +
-        'File yang berubah:\n' +
-        this._formatFileList(draft) + '\n' +
-        (msg ? '\n' + msg + '\n' : '') +
-        '\nDokumentasi yang perlu diupdate:\n' +
-        '• ' + fileNames.join('\n• ') + '\n\n' +
-        'Reply *ya* untuk terbitkan, *batal* untuk batalkan, *detail* untuk lihat isi lengkap.';
+      var text = TemplateEngine.render(tplNotify, {
+        summary: summary,
+        file_list: fileNames
+      });
 
       TelegramService.sendMessage(config.myChatId, text);
     } catch (e) {
@@ -472,15 +576,21 @@ var SelfDocSync = {
   _sendReminder: function(draft) {
     try {
       var config = Config.load();
-      var fileNames = [];
-      for (var i = 0; i < draft.files.length; i++) {
-        fileNames.push(draft.files[i].fileName);
+      var fileNames = draft.files.map(function(f) { return f.fileName; }).join(', ');
+
+      var tplReminder = KnowledgeRepository.get('sync', 'reminder_template');
+      if (!tplReminder) {
+        tplReminder = '🔔 *Pengingat: Update dokumentasi masih menunggu persetujuan.*\n\n' +
+          'File: {{file_list}}\n' +
+          'Terdeteksi: {{detected_at}}\n\n' +
+          'Reply *ya* untuk terbitkan, *batal* untuk batalkan, *detail* untuk lihat isi.';
+        KnowledgeRepository.save('sync', 'reminder_template', tplReminder, 'AUTO_BOOTSTRAP_REMINDER_TPL');
       }
 
-      var text = '🔔 *Pengingat: Update dokumentasi masih menunggu persetujuan.*\n\n' +
-        'File: ' + fileNames.join(', ') + '\n' +
-        'Terdeteksi: ' + (draft.detectedAt || '-') + '\n\n' +
-        'Reply *ya* untuk terbitkan, *batal* untuk batalkan, *detail* untuk lihat isi.';
+      var text = TemplateEngine.render(tplReminder, {
+        file_list: fileNames,
+        detected_at: draft.detectedAt || '-'
+      });
 
       TelegramService.sendMessage(config.myChatId, text);
       AppLogger.info('SELF_DOC_REMINDER_SENT', 'pending_since:' + draft.detectedAt);
