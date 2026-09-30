@@ -1,8 +1,9 @@
 /**
  * ===================================================================
- * SERVICE: INTENT ANALYZER (UNIFIED PERSONA & FORMATTER)
+ * SERVICE: INTENT ANALYZER (UNIFIED PERSONA & SELECTIVE TRUNCATED FORMATTER)
  * Tanggung jawab: Mengubah pesan pengguna menjadi struktur intent/params
- * dan menyediakan fungsi pembantu format konteks.
+ * dan menyediakan fungsi pembantu format konteks ringan.
+ * 100% PATUH PASAL 1.2 (ZERO HARDCODE HUMAN LANGUAGE STRINGS IN THIS FILE).
  * ===================================================================
  */
 const IntentAnalyzer = {
@@ -72,25 +73,37 @@ const IntentAnalyzer = {
     return TemplateEngine.render(template, variables);
   },
 
+  /**
+   * FORMATTER RIWAYAT DENGAN TRUNCATE RESPOR AI (> 300 KARAKTER)
+   * Mengamankan Prompt ReAct Agent agar tidak mengalami Context Bloat.
+   * Pesan User TIDAK DIPOTONG agar instruksi tetap 100% utuh.
+   */
   _formatRiwayat(r) {
-    if (!r || r.length === 0) return '-';
+    if (!r || !Array.isArray(r) || r.length === 0) return '-';
     return r.map(function(i) {
-      return (i.role === 'ai' ? 'AI' : 'User') + ': ' + i.text;
+      var roleLabel = (i.role === 'ai' || i.role === 'assistant') ? 'AI' : 'User';
+      var textContent = String(i.text || i.content || '').trim();
+      
+      // Potong HANYA respon AI jika lebih dari 300 karakter demi efisiensi prompt
+      if (roleLabel === 'AI' && textContent.length > 300) {
+        textContent = textContent.substring(0, 297) + '...';
+      }
+      return roleLabel + ': ' + textContent;
     }).join('\n');
   },
 
   _formatList(arr) {
-    if (!arr || arr.length === 0) return '-';
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return '-';
     return arr.map(function(x) { return '- ' + x; }).join('\n');
   },
 
   _formatReminder(r) {
-    if (!r || r.length === 0) return '-';
+    if (!r || !Array.isArray(r) || r.length === 0) return '-';
     return r.map(function(x) { return '- ' + x.deskripsi; }).join('\n');
   },
 
   _formatPola(p) {
-    if (!p || p.length === 0) return '-';
+    if (!p || !Array.isArray(p) || p.length === 0) return '-';
     return p.map(function(x) { return '- ' + x.pesan + ' -> ' + x.aksi; }).join('\n');
   }
 };
