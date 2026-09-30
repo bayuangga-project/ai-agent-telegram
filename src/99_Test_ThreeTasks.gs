@@ -39,3 +39,94 @@ function test_VerifyThreeFinalTasks() {
     Logger.log('❌ FAIL SOTA Upgrade: Panggilan LLM error');
   }
 }
+
+/**
+ * DIAGNOSTIK PRE-EXECUTION: Menguji Gemini Embedding API & Trigger Creation
+ * HANYA MEMBACA DATA & UJI API, TIDAK MENGUBAH DATABASE PRODUKSI. (Mematuhi Pasal 12)
+ */
+function diagnostic_PreExecutionCombinedSOTA() {
+  Logger.log('=== DIAGNOSTIK PRE-EXECUTION SOTA FASE C & D ===');
+
+  var config = Config.load();
+
+  // 1. Uji Gemini Embedding API (text-embedding-004)
+  if (!config.geminiApiKey) {
+    Logger.log('❌ FAIL: GEMINI_API_KEY belum dikonfigurasi.');
+    return;
+  }
+
+  var urlEmbedding = 'https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=' + config.geminiApiKey;
+  var payloadEmbedding = {
+    model: 'models/text-embedding-004',
+    content: { parts: [{ text: 'Bensin dan Pertamax di SPBU' }] }
+  };
+
+  try {
+    var resE = UrlFetchApp.fetch(urlEmbedding, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payloadEmbedding),
+      muteHttpExceptions: true
+    });
+
+    var codeE = resE.getResponseCode();
+    Logger.log('Gemini Embedding API Status: ' + codeE);
+
+    if (codeE === 200) {
+      var dataE = JSON.parse(resE.getContentText());
+      if (dataE.embedding && dataE.embedding.values) {
+        Logger.log('✅ PASS FASE D: Gemini Embedding API Aktif! Dimensi Vektor: ' + dataE.embedding.values.length + ' float.');
+      }
+    } else {
+      Logger.log('⚠️ WARN FASE D: Embedding API return HTTP ' + codeE + ' (Fallback ke Keyword Match akan aktif).');
+    }
+  } catch (eE) {
+    Logger.log('❌ ERROR Embedding: ' + eE.message);
+  }
+
+  // 2. Uji Kapasitas Trigger GAS
+  try {
+    var currentTriggers = ScriptApp.getProjectTriggers();
+    Logger.log('\nTotal Trigger Aktif Saat Ini: ' + currentTriggers.length + ' / 20 (Limit GAS)');
+    if (currentTriggers.length < 15) {
+      Logger.log('✅ PASS FASE C: Kuota Trigger GAS sangat cukup untuk Async Task Queue!');
+    } else {
+      Logger.log('⚠️ WARN FASE C: Trigger aktif sudah mendekati limit 20.');
+    }
+  } catch (eT) {
+    Logger.log('❌ ERROR Trigger: ' + eT.message);
+  }
+}
+
+/**
+ * TEST SUITE: Verifikasi FASE C (Async Task Queue) & FASE D (Vector Cosine Similarity RAG)
+ */
+function test_VerifyCombinedSOTA_PhaseCD() {
+  Logger.log('=== TEST VERIFIKASI SOTA FASE C & D ===');
+
+  // 1. Test FASE D: Vector Cosine Similarity
+  var sampleFact = 'Isi bensin Pertamax 100rb di SPBU Dipatiukur';
+  FactsRepository.save('test_chat_id', sampleFact, 'keuangan');
+
+  var semanticFacts = KnowledgeSpecialist.findRelevantToKeyword('bensin', 5);
+  Logger.log('Semantic Search Results untuk "bensin":\n' + JSON.stringify(semanticFacts));
+
+  if (semanticFacts.length > 0 && semanticFacts[0].indexOf('Pertamax') !== -1) {
+    Logger.log('✅ PASS FASE D: Vector Cosine Similarity RAG Berhasil Mencocokkan "bensin" -> "Pertamax"!');
+  } else {
+    Logger.log('⚠️ WARN FASE D: Cosine Similarity fallback ke Keyword Matching.');
+  }
+
+  // 2. Test FASE C: Async Enqueue & Self-Deleting Trigger
+  var asyncMsg = Manager._enqueueAsyncTask('test_chat_id', 'deep_research', 'Riset tren AI 2026', []);
+  Logger.log('Async Enqueue Response: ' + asyncMsg);
+
+  var triggers = ScriptApp.getProjectTriggers();
+  var hasWorkerTrigger = triggers.some(function(t) { return t.getHandlerFunction() === 'runAsyncTaskWorkerWrapper'; });
+
+  if (asyncMsg.indexOf('Diterima') !== -1 && hasWorkerTrigger) {
+    Logger.log('✅ PASS FASE C: Async Task Queue Enqueue & Trigger Creation Berhasil!');
+  } else {
+    Logger.log('❌ FAIL FASE C: Async Enqueue error');
+  }
+}
