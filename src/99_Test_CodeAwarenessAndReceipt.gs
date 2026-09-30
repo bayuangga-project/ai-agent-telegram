@@ -26,3 +26,31 @@ function test_FullDocsIngestionAndResolver() {
     Logger.log('❌ FAIL: Wallet Resolver gagal.');
   }
 }
+
+/**
+ * TEST SUITE: Verifikasi 100% Kepatuhan Pasal 1.2 & Smart Tokenizer Code Search
+ */
+function test_Pasal12ComplianceAndTokenizer() {
+  Logger.log('=== TEST KEPATUHAN PASAL 1.2 & SMART TOKENIZER ===');
+
+  // 1. Test Smart Tokenizer dari Kalimat Utuh
+  var userSentence = 'Vexa, di file mana dan baris berapa fungsi analyzePhoto dipanggil?';
+  var searchRes = SelfAwareness.searchCodeLocation(userSentence);
+  
+  Logger.log('Kalimat User: "' + userSentence + '"');
+  Logger.log('Hasil Ekstraksi Tokenizer:\n' + JSON.stringify(searchRes, null, 2));
+
+  if (searchRes.length > 0 && searchRes[0].file === '05_Service_Telegram.gs') {
+    Logger.log('✅ PASS: Smart Tokenizer mengekstrak "analyzePhoto" & menunjuk file 05_Service_Telegram.gs baris ' + searchRes[0].line + '!');
+  } else {
+    Logger.log('❌ FAIL: Tokenizer gagal mengekstrak kata kunci.');
+  }
+
+  // 2. Test Stack Contract Grounding
+  var metrics = SelfAwareness.review('all').system_metrics;
+  if (metrics.stackContract && metrics.stackContract.platform.indexOf('Google Apps Script') !== -1) {
+    Logger.log('✅ PASS: Stack Contract terbaca dari Database Knowledge tanpa hardcode di .gs!');
+  } else {
+    Logger.log('❌ FAIL: Stack Contract error');
+  }
+}
