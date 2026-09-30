@@ -104,12 +104,7 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 | `04_Repository_Wallet.gs` | 44 | WalletRepository | create(nama, saldoAwal), getAll(), findByName(nama), findById(id), exists(nama) |
 | `05_Service_Telegram.gs` | 115 | TelegramService, payload, options, payload, options | pickPlaceholder(), sendMessage(chatId, text), editMessage(chatId, messageId, text) |
 | `06_Service_LLMProvider.gs` | 118 | LLMProviderService | call(sys, msgs, temp, model), call(sys, msgs, temp, model), call(sys, msgs, temp), generate(params), generateFromSinglePrompt(promptText, temperature, taskType), _recordStatSafe(taskType, modelId, success, latency) |
-| `06_Service_LLM_Gemini.gs` | 136 | GeminiProvider, payload | _discoverActiveModel(), call(systemInstruction, messages, temperature, modelName) |
-| `06_Service_LLM_Groq.gs` | 61 | GroqProvider, payload, options | call(systemInstruction, messages, temperature) |
-| `06_Service_LLM_OpenRouter.gs` | 82 | OpenRouterProvider, payload, options | call(systemInstruction, messages, temperature, modelName) |
 | `07_Service_WebSearchProvider.gs` | 47 | WebSearchProviderService | getProviders(), search(query), formatResultsAsContext(results), isAnyConfigured() |
-| `07_Service_WebSearch_Google.gs` | 48 | GoogleSearchProvider, options | isConfigured(), search(query) |
-| `07_Service_WebSearch_Tavily.gs` | 55 | TavilySearchProvider, payload, options | isConfigured(), search(query) |
 | `08_Specialist_ChangeDetector.gs` | 206 | ChangeDetector, result, snapshot | runDetection(mode), runScheduledDetection(), _getCurrentFiles(), _simpleHash(str), _getLatestSnapshot(), _saveSnapshot(currentFiles), _compareWithSnapshot(currentFiles, snapshot), _buildReport(changes), _checkDocSync(changes) |
 | `08_Specialist_Chat.gs` | 92 | ChatSpecialist, variables | buildSystemPersona(), needsWebSearch(intent), respondWithSearchContext(userMessage, searchResults, riwayat), _formatRiwayat(riwayat) |
 | `08_Specialist_CodeAuditor.gs` | 528 | CodeAuditor, seen, filesToRead, sourceMap | runAudit(type), runScheduledAudit(), fixIssues(scope), shouldOfferAudit(), _collectData(), _getSheetNames(), _analyzeInBatches(data, categories), _splitIntoBatches(files), _buildAuditPrompt(batch, data, categories), _parseFindings(rawText), _deduplicateFindings(findings), _filterByScope(findings, scope), _generateFixes(findings), _applyFixes(fixes, scope), _saveReport(findings, type), _saveFindings(reportId, findings), _getLatestPendingFindings(), _markFindingsFixed(findings), _getLastAuditDate() |
@@ -125,26 +120,17 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 | `08_Specialist_SelfAwareness.gs` | 131 | SelfAwareness, data | review(focus), _gatherSelfData() |
 | `08_Specialist_SelfHealing.gs` | 391 | SelfHealingSpecialist, sourceMap, currentDocs, suspectSet, mapping | getLevel(), diagnose(keluhanUser), updateDocumentation(instruction), applyPendingPatch(patchId), _getRecentLogs(count), _filterErrorLogs(logs), _identifySuspectFiles(errorLogs, keluhan), _askLLMForDiagnosis(keluhan, errorLogs, sourceMap), _applyToGitHub(diagnosis), _savePatch(diagnosis), _getPatchById(patchId), _updatePatchStatus(fileName, newStatus) |
 | `08_Specialist_Soul.gs` | 357 | SoulSpecialist, merged, merged, merged, report, allMethodDefs, allMethodCalls, allModuleRefs, fileReport, definedModules | initializeSelf(), _patchIntentSchema(), getSelfModel(), updateSelfModel(data), getIdentity(), updateIdentity(data), getBeliefs(), addBelief(belief), getGrowthLog(), addGrowthEntry(event, detail), getEmotionalState(), updateEmotionalState(data), getFullContext(), runFullCodeAudit() |
-| `08_Specialist_SoulMemory.gs` | 105 | SoulMemory | _ensureSheets(), recordEpisode(eventType, context, outcome, emotionalState, details), getRecentEpisodes(limit), getEpisodesByType(eventType, limit), addMetaInsight(insight, source, confidence), getMetaInsights(limit) |
 | `08_Specialist_SyncOrchestrator.gs` | 191 | SyncOrchestrator, results | assessState(), executeSync(scope), autoDocument(changeDescription), _assessKnowledge(), _assessDocumentation(), _assessSheetStructure(), _getLastSyncTimestamp(), _saveSyncTimestamp(), _pullKnowledge(), _backupKnowledge(), _syncDocumentation(), _ensureSheets() |
 | `08_Specialist_UserProfile.gs` | 120 | UserProfileSpecialist | saveUpdates(updates), getProfileForPrompt(maxItems), getByCategory(category), _upsertProfile(key, value, category) |
 | `08_Utils_PatchValidator.gs` | 208 | PatchValidator, result, X | validate(patchedCode, originalCode, fileName), _checkSyntax(code), _checkStructuralSanity(patched, original), _checkSuspiciousPatterns(code), formatResult(result) |
-| `08_Utils_TemplateEngine.gs` | 8 | TemplateEngine | render(template, variables) |
 | `09_CommandRouter.gs` | 44 | CommandRouter, intent | isKnownCommand(text), handle(chatId, text), _handleIngat(chatId, args) |
 | `09_Manager.gs` | 476 | Manager, payload, fields | processConversationalMessage(chatId, text), _gatherContext(), _persistAutoFacts(chatId, intent), _routeIntent(chatId, text, intent, context), _askLLMWithKnowledge(chatId, userText, namespace, key, rawData), _handleCatatKeuangan(chatId, text, intent), _handleTanyaSaldo(chatId, text, intent), _handleRingkasanKeuangan(chatId, text, intent), _handleAturBudget(chatId, text, intent), _handleEditTransaksi(chatId, text, intent), _handleSyncDocumentation(chatId, text, intent), _handleBackupKnowledge(chatId, text), _handleRestoreKnowledge(chatId, text), _handleSoulInit(chatId, text), _handleSoulQuery(chatId, text, intent), _handleSoulMemoryQuery(chatId, text, intent), _handleAckReminder(chatId, text, intent, context), _handleBuatReminder(intent), _handleDiagnoseError(chatId, text, intent), _handleUpdateDocs(chatId, text, intent), _handleAuditCode(chatId, text, intent), _handleFixAudit(chatId, text, intent), _handleCheckChanges(chatId, text, intent), _handleRoadmapQuery(chatId, text, intent), _handleImplementFeature(chatId, text, intent), _handleSelfQuery(chatId, text, intent), _handleChatBiasa(chatId, text, intent, riwayat), _handleHeavyChat(text, intent, riwayat), _handleChatWithWebSearch(text, intent, riwayat), _handleIntentFailure(chatId, text, riwayat) |
 | `09_Manager_IntentAnalyzer.gs` | 90 | IntentAnalyzer, variables | analyze(userMessage, context), _parseResponse(rawText, providerName), _buildPrompt(userMessage, context), _formatRiwayat(r), _formatList(arr), _formatReminder(r), _formatPola(p) |
 | `10_Handler_Webhook.gs` | 79 | WebhookHandler | handle(e), _isAuthorized(e, config), _isDuplicateUpdate(contents), _processMessage(chatId, text), doPost(e) |
-| `11_Trigger_AuditScheduler.gs` | 64 | AuditScheduler | runScheduledAudit(), setupWeeklyTrigger(), _deleteExistingTriggers(), runScheduledAuditWrapper(), setupWeeklyTrigger() |
-| `11_Trigger_LLMIntelligence.gs` | 25 | - | runDailyLLMDiscovery(), setupDailyLLMDiscovery() |
-| `11_Trigger_MemorySummarizer.gs` | 38 | MemorySummarizerTrigger | setupNightlyTrigger(), _deleteExistingTriggers(), runNightlySummarizerWrapper(), setupNightlySummarizer() |
-| `11_Trigger_ReminderChecker.gs` | 51 | - | cekDanKirimReminder(), setupReminderTrigger() |
-| `11_Trigger_ScheduledSync.gs` | 29 | - | runDailyAutoSync(), setupDailyAutoSyncTrigger() |
-| `11_Trigger_WeeklyChangeCheck.gs` | 37 | WeeklyChangeCheckTrigger | setupWeeklyTrigger(), _deleteExistingTriggers(), runWeeklyChangeCheckWrapper(), setupWeeklyChangeCheck() |
 | `12_Service_GitHubBackup.gs` | 186 | GitHubBackupService, config, payload | backupAllFiles(), backupDocs(), _loadGitHubConfig(), _fetchOwnSourceFiles(), _resolveFilePath(file), _pushFileToGitHub(config, path, content), _getExistingFileSha(config, url), runFullBackup(), setupDailyBackupTrigger() |
 | `13_Service_GitHubOps.gs` | 297 | GitHubOpsService, result, payload | _getHeaders(), _getRepoUrl(), readFile(path, ref), listDirectory(path), readAllSourceFiles(), createBranch(branchName), createBackupBranch(suffix), commitFile(path, content, message, branch, sha), createPullRequest(title, body, head, base), readDocFile(fileName), updateDocFile(fileName, newContent, commitMessage) |
 | `99_TestSuite_Full.gs` | 922 | cleaned | _tLog(batch, name, status, detail, ms), _cleanupTestData(), test_Batch1_RepositoryCRUD(), test_Batch2_IntentDetection(), test_Batch3_LLMRouting(), test_Batch4_FinanceE2E(), test_Batch5_MemoryContext(), test_Batch6_Integration() |
 | `99_Tests.gs` | 439 | headers, cleaned, matrix, functionMap | test_Batch7b_FinanceSpecialist(), debug_CheckOAuthScopes(), debug_CheckGitHubConfig(), test_TelegramMarkdownFallback(), debug_TimezoneAudit(), triggerKnowledgeSync(), triggerManualDiscoveryAndBenchmark(), test_Stage1_Discover(), test_Stage2_BenchmarkBatch(), test_Stage3_Rank(), test_CheckGitHubRateLimitAndAuth(), fix_CleanBenchmarkData(), resetAndCleanSystemCounters(), forceSyncKnowledgeFromGitHub(), test_DocSync_CollectSourceMetadata(), test_DetectDuplicateGlobalFunctions(), debug_DumpIntentKnowledge() |
-| `Rollback.gs` | 108 | options, headers | rollbackFromGitHub(), _getRollbackFilesFromGitHub(config) |
 
 ### Detailed declaration list
 
@@ -247,14 +233,11 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 - L103: `generateFromSinglePrompt(promptText, temperature, taskType)` — method
 - L111: `_recordStatSafe(taskType, modelId, success, latency)` — method
 
-#### `06_Service_LLM_Gemini.gs`
 - L11: `_discoverActiveModel()` — method
 - L80: `call(systemInstruction, messages, temperature, modelName)` — method
 
-#### `06_Service_LLM_Groq.gs`
 - L11: `call(systemInstruction, messages, temperature)` — method
 
-#### `06_Service_LLM_OpenRouter.gs`
 - L19: `call(systemInstruction, messages, temperature, modelName)` — method
 
 #### `07_Service_WebSearchProvider.gs`
@@ -263,11 +246,9 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 - L36: `formatResultsAsContext(results)` — method
 - L44: `isAnyConfigured()` — method
 
-#### `07_Service_WebSearch_Google.gs`
 - L11: `isConfigured()` — method
 - L16: `search(query)` — method
 
-#### `07_Service_WebSearch_Tavily.gs`
 - L12: `isConfigured()` — method
 - L16: `search(query)` — method
 
@@ -435,7 +416,6 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 - L167: `getFullContext()` — method
 - L178: `runFullCodeAudit()` — global
 
-#### `08_Specialist_SoulMemory.gs`
 - L7: `_ensureSheets()` — method
 - L12: `recordEpisode(eventType, context, outcome, emotionalState, details)` — method
 - L31: `getRecentEpisodes(limit)` — method
@@ -470,7 +450,6 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 - L138: `_checkSuspiciousPatterns(code)` — method
 - L190: `formatResult(result)` — method
 
-#### `08_Utils_TemplateEngine.gs`
 - L2: `render(template, variables)` — method
 
 #### `09_CommandRouter.gs`
@@ -526,32 +505,26 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 - L64: `_processMessage(chatId, text)` — method
 - L77: `doPost(e)` — global
 
-#### `11_Trigger_AuditScheduler.gs`
 - L13: `runScheduledAudit()` — method
 - L28: `setupWeeklyTrigger()` — method
 - L44: `_deleteExistingTriggers()` — method
 - L58: `runScheduledAuditWrapper()` — global
 - L62: `setupWeeklyTrigger()` — global
 
-#### `11_Trigger_LLMIntelligence.gs`
 - L7: `runDailyLLMDiscovery()` — global
 - L13: `setupDailyLLMDiscovery()` — global
 
-#### `11_Trigger_MemorySummarizer.gs`
 - L8: `setupNightlyTrigger()` — method
 - L22: `_deleteExistingTriggers()` — method
 - L32: `runNightlySummarizerWrapper()` — global
 - L36: `setupNightlySummarizer()` — global
 
-#### `11_Trigger_ReminderChecker.gs`
 - L6: `cekDanKirimReminder()` — global
 - L44: `setupReminderTrigger()` — global
 
-#### `11_Trigger_ScheduledSync.gs`
 - L7: `runDailyAutoSync()` — global
 - L17: `setupDailyAutoSyncTrigger()` — global
 
-#### `11_Trigger_WeeklyChangeCheck.gs`
 - L8: `setupWeeklyTrigger()` — method
 - L21: `_deleteExistingTriggers()` — method
 - L31: `runWeeklyChangeCheckWrapper()` — global
@@ -610,7 +583,6 @@ Snapshot source berasal dari `.gs`; `appsscript.json` tidak ikut.
 - L342: `test_DetectDuplicateGlobalFunctions()` — global
 - L426: `debug_DumpIntentKnowledge()` — global
 
-#### `Rollback.gs`
 - L8: `rollbackFromGitHub()` — global
 - L47: `_getRollbackFilesFromGitHub(config)` — global
 
