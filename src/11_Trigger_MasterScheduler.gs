@@ -1,14 +1,9 @@
 /**
  * ===================================================================
- * MASTER SCHEDULER & TRIGGERS
- * Pusat Pengelolaan Seluruh Jadwal Otomatis (Harian, Mingguan, Bulanan).
- * Menjaga semua wrapper fungsi global agar trigger GAS tidak terputus.
+ * MASTER SCHEDULER & TRIGGERS (WITH SELF-DELETING ASYNC TASK WORKER)
  * ===================================================================
  */
 
-// -------------------------------------------------------------------
-// 1. SCHEDULED SYNC & SELF-DOC CHECK
-// -------------------------------------------------------------------
 function runDailyAutoSync() {
   try {
     AppLogger.info('TRIGGER_AUTO_SYNC_START', 'daily_04:00');
@@ -58,7 +53,7 @@ function setupDailySelfDocTrigger() {
 }
 
 // -------------------------------------------------------------------
-// 2. AUDIT SCHEDULER (MINGGUAN / TANGGAL 1)
+// AUDIT SCHEDULER (MINGGUAN / TANGGAL 1)
 // -------------------------------------------------------------------
 var AuditScheduler = {
   runScheduledAudit: function() {
@@ -104,7 +99,7 @@ function runScheduledAuditWrapper() { AuditScheduler.runScheduledAudit(); }
 function setupWeeklyTrigger() { AuditScheduler.setupDailyTrigger(); }
 
 // -------------------------------------------------------------------
-// 3. REMINDER CHECKER (TIAP MENIT)
+// REMINDER CHECKER (TIAP MENIT)
 // -------------------------------------------------------------------
 function cekDanKirimReminder() {
   try {
@@ -137,7 +132,7 @@ function setupReminderTrigger() {
 }
 
 // -------------------------------------------------------------------
-// 4. LLM INTELLIGENCE DISCOVERY (DAILY 03:00)
+// LLM INTELLIGENCE DISCOVERY (DAILY 03:00)
 // -------------------------------------------------------------------
 function runDailyLLMDiscovery() {
   AppLogger.info('TRIGGER_LLM_INTEL_START', 'daily_03:00');
@@ -160,7 +155,7 @@ function setupDailyLLMDiscovery() {
 }
 
 // -------------------------------------------------------------------
-// 5. MEMORY NIGHTLY SUMMARIZER
+// MEMORY NIGHTLY SUMMARIZER
 // -------------------------------------------------------------------
 var MemorySummarizerTrigger = {
   setupNightlyTrigger: function() {
@@ -186,7 +181,7 @@ function runNightlySummarizerWrapper() { MemorySpecialist.summarizeToday(); }
 function setupNightlySummarizer() { MemorySummarizerTrigger.setupNightlyTrigger(); }
 
 // -------------------------------------------------------------------
-// 6. WEEKLY CHANGE CHECK
+// WEEKLY CHANGE CHECK
 // -------------------------------------------------------------------
 var WeeklyChangeCheckTrigger = {
   setupWeeklyTrigger: function() {
@@ -210,3 +205,57 @@ var WeeklyChangeCheckTrigger = {
 
 function runWeeklyChangeCheckWrapper() { ChangeDetector.runScheduledDetection(); }
 function setupWeeklyChangeCheck() { WeeklyChangeCheckTrigger.setupWeeklyTrigger(); }
+
+// -------------------------------------------------------------------
+// FASE C: ASYNC TASK QUEUE BACKGROUND WORKER (SELF-DELETING TRIGGER)
+// -------------------------------------------------------------------
+function runAsyncTaskWorkerWrapper() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    var cache = CacheService.getScriptCache();
+    var rawTask = cache.get('PENDING_ASYNC_TASK');
+    if (!rawTask) {
+      AppLogger.warning('ASYNC_WORKER_NO_TASK', 'pending_task_cache_empty');
+      return;
+    }
+    var task = JSON.parse(rawTask);
+    cache.remove('PENDING_ASYNC_TASK');
+
+    AppLogger.info('ASYNC_WORKER_START', 'task_id:' + task.id + '|type:' + task.type);
+
+    var resultText = '';
+    if (task.type === 'web_research') {
+      var searchResults = WebSearchProviderService.search(task.query);
+      resultText = ChatSpecialist.respondWithSearchContext(task.query, searchResults, task.riwayat || []);
+    } else {
+      var llmRes = LLMProviderService.generate({
+        taskType: 'chat_heavy',
+        systemInstruction: ChatSpecialist.buildSystemPersona(),
+        messages: [{ role: 'user', text: task.prompt }],
+        temperature: 0.7
+      });
+      resultText = (llmRes && llmRes.text) ? llmRes.text : '';
+    }
+
+    if (resultText && task.chatId) {
+      var tplDone = KnowledgeRepository.get('async_task', 'task_completed_template') || '🔔 *Tugas Background Selesai:*\n\n{{result}}';
+      var finalMsg = TemplateEngine.render(tplDone, { result: resultText });
+      TelegramService.sendMessage(task.chatId, finalMsg);
+    }
+  } catch (err) {
+    AppLogger.error('ASYNC_WORKER_ERROR', err.message);
+  } finally {
+    // 100% PASTI MENGHAPUS TRIGGER DIRINYA SENDIRI
+    try {
+      var triggers = ScriptApp.getProjectTriggers();
+      triggers.forEach(function(t) {
+        if (t.getHandlerFunction() === 'runAsyncTaskWorkerWrapper') {
+          ScriptApp.deleteTrigger(t);
+        }
+      });
+      AppLogger.info('ASYNC_WORKER_TRIGGER_CLEANED', 'self_deleted_successfully');
+    } catch (eClean) {}
+    lock.releaseLock();
+  }
+}
