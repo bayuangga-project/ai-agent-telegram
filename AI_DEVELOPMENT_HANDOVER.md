@@ -6,7 +6,7 @@
 
 Repository yang sedang dikembangkan adalah snapshot AI Agent Telegram (Vexa) berbasis Google Apps Script V8.
 
-- Snapshot Kode: 43 `.gs` file (Telah dirampingkan & dioptimalkan)
+- Snapshot Kode: 43 `.gs` file
 - Tanggal Audit & Penyelarasan: 30 September 2026
 - Source: 43 `.gs` files, ~8.500 LOC
 - Manifest: `src/appsscript.json`
@@ -87,9 +87,8 @@ Persistence utama adalah Google Spreadsheet; source/docs/knowledge backup berada
 | `11_Trigger_MasterScheduler.gs` | 190 | MasterScheduler, Triggers | runDailyAutoSync(), setupDailyAutoSyncTrigger(), runDailySelfDocCheck(), setupDailySelfDocTrigger(), runScheduledAuditWrapper(), setupWeeklyTrigger(), cekDanKirimReminder(), setupReminderTrigger(), runDailyLLMDiscovery(), setupDailyLLMDiscovery(), runNightlySummarizerWrapper(), setupNightlySummarizer(), runWeeklyChangeCheckWrapper(), setupWeeklyChangeCheck(), runAsyncTaskWorkerWrapper() |
 | `12_Service_GitHubBackup.gs` | 195 | GitHubBackupService | backupAllFiles(), backupDocs(), _syncDeletedFilesToGitHub(), _syncDeletedDocsToGitHub(), _deleteFileFromGitHub(), runFullBackup(), setupDailyBackupTrigger() |
 | `13_Service_GitHubOps.gs` | 297 | GitHubOpsService | _getHeaders(), _getRepoUrl(), readFile(), listDirectory(), readAllSourceFiles(), createBranch(), createBackupBranch(), commitFile(), createPullRequest(), readDocFile(), updateDocFile() |
-| `99_Audit_SyncSystem.gs` | 420 | AuditSyncSystem | audit_SyncSystem_Full(), audit_1_KoneksiSheet(), audit_2_KoneksiGitHub(), audit_3_GitHubKeSheet_Knowledge(), audit_4_SheetKeGitHub_Dokumentasi(), audit_5_FileMd_Identik(), audit_6_SelfDocSync(), audit_7_ChangeDetector(), audit_8_TriggerAktif() |
-| `99_Heal_SyncSystem.gs` | 140 | HealSyncSystem | jalankan_Penyembuhan_Sinkronisasi_Total(), healer_SyncKnowledge_Force(), healer_SyncDocs_Force() |
-| `99_TestSuite_Full.gs` | 922 | TestSuiteFull | _tLog(), _cleanupTestData(), test_Batch1_RepositoryCRUD(), test_Batch2_IntentDetection(), test_Batch3_LLMRouting(), test_Batch4_FinanceE2E(), test_Batch5_MemoryContext(), test_Batch6_Integration() |
+| `99_Test_CodeAwarenessAndReceipt.gs` | - | TestCodeAwareness | Test suite untuk code awareness dan receipt |
+| `99_Test_ThreeTasks.gs` | - | TestThreeTasks | Test suite untuk tiga tugas utama |
 
 ## 4. Sheet/data contracts (13 Active Sheets)
 
